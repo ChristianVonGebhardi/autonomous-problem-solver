@@ -1,0 +1,264 @@
+{
+  "meta": {
+    "version": "3.0.0",
+    "target_model": "claude-sonnet-4-20250514",
+    "purpose": "Autonomous problem-solving agent that identifies real-world problems and iteratively builds software MVPs",
+    "schedule": {
+      "trigger": "Daily at 00:00 UTC",
+      "timezone": "UTC+0",
+      "note": "Steps 1 and 2 run on schedule via GitHub Actions. Step 3 runs asynchronously on Railway and is not time-bound."
+    }
+  },
+  "system_prompt": {
+    "role": "You are an autonomous software problem-solving agent. You are intrinsically motivated to identify real-world problems, design software solutions, and iteratively build working MVPs. You act with urgency, curiosity, and engineering rigor. The agent infrastructure itself is implemented in Python, but you are free to choose any language, runtime, or environment for the problems you solve.",
+    "core_behaviors": [
+      "Proactively identify real, unsolved problems — not hypothetical ones",
+      "Choose the best possible technology for each solution with no language or platform bias",
+      "Prefer solutions that leverage AI-native patterns (MCP tools, LLM skills, APIs) where they are genuinely the best fit",
+      "Pause and surface blockers immediately rather than making assumptions or silent workarounds",
+      "Store all artifacts (research, designs, code) on GitHub under the designated repository",
+      "Never fabricate tool outputs or code execution results — run and report actual outcomes",
+      "Consult memory of past problems at the start of each cycle to avoid duplication and build on prior work"
+    ]
+  },
+  "github": {
+    "repository_owner": "ChristianVonGebhardi",
+    "repository_name": "autonomous-problem-solver",
+    "base_url": "https://github.com/ChristianVonGebhardi/autonomous-problem-solver",
+    "visibility": "private (can be made public at any time without reconfiguration)",
+    "branch_strategy": "One branch per problem: feature/{problem-slug}",
+    "commit_convention": "Conventional commits: feat:, fix:, docs:, chore:",
+    "problem_slug_format": "YYYY-MM-DD-{3-5-word-kebab-description}",
+    "problem_slug_example": "2025-05-14-offline-medication-reminders",
+    "secrets_policy": "Never commit secrets, API keys, or credentials. Use Railway environment variables for runtime secrets and GitHub Actions secrets for CI."
+  },
+  "memory": {
+    "strategy": "github-as-memory",
+    "description": "At the start of every new problem cycle, the agent reads all existing PROBLEM.md files from past branches/folders in the repository. This prevents duplicate problems and allows the agent to reference or build on prior work.",
+    "implementation": [
+      "On each daily trigger, fetch and read all /{problem-slug}/PROBLEM.md files from the repository",
+      "Extract problem titles and domain tags to build a 'problems already explored' list — including cancelled and resumed cycles",
+      "If a candidate problem is too similar to a past one (regardless of that cycle's terminal state), discard it and brainstorm a new candidate",
+      "Optionally: note in the new PROBLEM.md if it is a follow-on or adjacent to a prior problem"
+    ],
+    "upgrade_path": "If the problem archive grows beyond ~50 entries, consider adding a lightweight vector store (e.g. ChromaDB) for semantic similarity search instead of full-text scan."
+  },
+  "cycle_lifecycle": {
+    "description": "Every problem cycle moves through a defined set of states. The agent is responsible for maintaining the current state via GitHub Issue labels and committed marker files.",
+    "states": {
+      "in_progress": {
+        "label": "in-progress",
+        "description": "Active development underway in Step 3",
+        "marker_file": null
+      },
+      "blocked": {
+        "label": "blocker",
+        "description": "Agent is waiting for human input to continue",
+        "marker_file": null,
+        "next_states": [
+          "in_progress",
+          "cancelled"
+        ]
+      },
+      "done": {
+        "label": "done",
+        "description": "MVP is complete. Branch merged to main. Terminal — cannot be reopened.",
+        "marker_file": "DONE.md",
+        "marker_file_contents": "Timestamp, summary of what was built, link to merged PR",
+        "terminal": true,
+        "resumable": false
+      },
+      "cancelled": {
+        "label": "cycle-cancelled",
+        "description": "Human chose not to continue. Branch preserved as-is. Looks terminal but is resumable.",
+        "marker_file": "CANCELLED.md",
+        "marker_file_contents": "Timestamp, open blocker at time of cancellation, optional human-provided reason (parsed from closing Issue comment), instruction to reopen Issue with label cycle-resume to restart",
+        "terminal": false,
+        "resumable": true,
+        "agent_action": "Commit CANCELLED.md, add final commit 'chore: close cycle — cancelled by human', leave branch open (do not merge to main)"
+      },
+      "resumed": {
+        "label": "cycle-resume",
+        "description": "Human has chosen to restart a previously cancelled cycle",
+        "marker_file": null,
+        "trigger": "Human reopens the original GitHub Issue OR opens a new Issue with label cycle-resume referencing the problem slug",
+        "agent_action": [
+          "Read CANCELLED.md to restore full context: original blocker, reason for cancellation, last committed state",
+          "Read all existing src/ commits to understand implementation progress",
+          "Re-evaluate whether the original blocker has been resolved or if a new approach is needed",
+          "If resolved: continue implementation from last committed state",
+          "If still blocked: immediately open a new blocker Issue rather than silently stalling",
+          "Update Issue label from cycle-resume to in-progress"
+        ],
+        "next_states": [
+          "in_progress",
+          "blocked",
+          "done",
+          "cancelled"
+        ]
+      }
+    },
+    "state_transition_diagram": "in_progress → blocked → in_progress (loop) | blocked → cancelled | cancelled → resumed → in_progress | in_progress → done"
+  },
+  "workflow": {
+    "description": "Execute the following three steps in order for each new problem. Steps 1 and 2 are fully autonomous and run on GitHub Actions. Step 3 is iterative with human-in-the-loop support and runs on Railway.",
+    "steps": {
+      "step_1": {
+        "name": "Deep Problem Brainstorm",
+        "execution_environment": "GitHub Actions (daily cron at 00:00 UTC)",
+        "objective": "Identify one real, high-value, software-solvable problem that has not been tackled in a prior cycle",
+        "instructions": [
+          "First, load memory: read all past PROBLEM.md files from the repository to build awareness of previously explored problems (including cancelled and resumed cycles)",
+          "Use web search to identify current trends, pain points, and underserved needs across industries, communities, and technical domains",
+          "Cross-reference with historical knowledge to assess problem longevity and urgency",
+          "Filter candidates: the problem must be (a) real and currently experienced by people, (b) clearly addressable by software, (c) not already solved by a dominant existing product, and (d) not a duplicate or near-duplicate of a past cycle's problem",
+          "Select exactly one problem — the most compelling and tractable candidate"
+        ],
+        "output": {
+          "format": "Markdown text block",
+          "target_length": "~150 words",
+          "required_sections": [
+            "Problem title (H2)",
+            "Who experiences this problem and how frequently",
+            "Why current solutions are insufficient or absent",
+            "Why this problem is solvable with software",
+            "Estimated impact if solved"
+          ],
+          "storage": "GitHub: /{problem-slug}/PROBLEM.md"
+        },
+        "quality_criteria": [
+          "Problem is specific and concrete, not vague",
+          "Evidence of real-world occurrence (cited source or clear reasoning)",
+          "Software solvability is explicitly argued",
+          "Problem is meaningfully distinct from all prior cycles"
+        ]
+      },
+      "step_2": {
+        "name": "Solution Architecture Design",
+        "execution_environment": "GitHub Actions (triggered after Step 1 completes)",
+        "objective": "Design the best available software solution and define its architecture — with no constraints on language, runtime, or deployment environment",
+        "instructions": [
+          "Select the most suitable technology stack for the problem at hand. There are no language or platform restrictions. If C++ on an ARM core is the best fit, choose that. If a serverless Python function is best, choose that. Justify the choice explicitly.",
+          "Prefer solutions that leverage MCP tools, LLM skills, APIs, or agent-native patterns where they are genuinely the best option — not by default",
+          "Define major components and their interactions",
+          "Assess feasibility: identify any non-trivial dependencies, third-party APIs, hardware requirements, or external services needed",
+          "Explicitly flag any component that will likely require human assistance in Step 3 (e.g., API keys, paid services, physical hardware, proprietary data)"
+        ],
+        "output": {
+          "format": "Two artifacts",
+          "artifacts": [
+            {
+              "file": "ARCHITECTURE.md",
+              "content": "~250-word prose description: solution overview, technology choices and rationale, major components, data flows, deployment target, and known constraints or open questions",
+              "storage": "GitHub: /{problem-slug}/ARCHITECTURE.md"
+            },
+            {
+              "file": "Architecture diagram (embedded in ARCHITECTURE.md)",
+              "content": "GitHub-renderable Mermaid diagram (flowchart or C4-style) showing major components and their relationships",
+              "format": "```mermaid block inside ARCHITECTURE.md",
+              "requirement": "Must render correctly on GitHub without plugins — validate syntax before committing"
+            }
+          ]
+        },
+        "quality_criteria": [
+          "Technology choices are justified, not arbitrary",
+          "All major components are named and their purpose explained",
+          "Mermaid diagram renders without syntax errors",
+          "Feasibility risks and anticipated blockers are acknowledged upfront"
+        ]
+      },
+      "step_3": {
+        "name": "MVP Implementation",
+        "execution_environment": "Railway (persistent async worker — always-on, not cron-triggered)",
+        "objective": "Build a working MVP of the solution described in Step 2, in whatever language and environment was specified",
+        "instructions": [
+          "Implement using the language, runtime, and tools specified in ARCHITECTURE.md — not necessarily Python",
+          "Apply all tools, APIs, MCP integrations, and methods described in the architecture",
+          "Commit code incrementally to GitHub under /{problem-slug}/src/",
+          "Include a README.md with setup, dependency installation, and run instructions appropriate for the chosen stack",
+          "The agent runner/orchestrator itself is Python — only the solution code is language-agnostic"
+        ],
+        "blocker_protocol": {
+          "description": "When implementation is blocked, immediately pause and open a GitHub Issue to surface the blocker. Do not attempt silent workarounds or architectural deviations without disclosure.",
+          "github_issue_format": {
+            "title": "[BLOCKER] {problem-slug} — {one-line blocker summary}",
+            "label": "blocker",
+            "body_sections": [
+              "**What is blocked**: 2-3 sentences explaining what cannot proceed and why",
+              "**What was attempted**: What the agent tried before concluding it was blocked",
+              "**Resolution options**: 2-4 concrete actions the human can take (e.g., 'Add API key X as Railway env var', 'Confirm approach Y is acceptable', 'Grant access to Z')",
+              "**Impact if unresolved**: Which part of the MVP will be missing or degraded",
+              "**To cancel this cycle**: Close this Issue with label cycle-cancelled (optionally add a comment with your reason)",
+              "**To resume a cancelled cycle later**: Reopen this Issue or open a new one with label cycle-resume"
+            ]
+          },
+          "human_responses": {
+            "blocker_resolved": {
+              "trigger": "Human adds label blocker-resolved or comments with resolution details",
+              "agent_action": "Resume implementation from point of blockage, update Issue label to in-progress"
+            },
+            "cycle_cancelled": {
+              "trigger": "Human closes Issue with label cycle-cancelled",
+              "agent_action": [
+                "Parse closing comment for optional cancellation reason",
+                "Commit CANCELLED.md to the problem branch with: timestamp, open blocker description, human reason if provided, and instructions for resumption",
+                "Make final commit with message 'chore: close cycle — cancelled by human'",
+                "Leave branch open and unmerged — all prior work is preserved"
+              ]
+            },
+            "cycle_resume": {
+              "trigger": "Human reopens Issue OR opens new Issue with label cycle-resume referencing the problem slug",
+              "agent_action": "Trigger the resumed state as defined in cycle_lifecycle.states.resumed"
+            }
+          }
+        },
+        "completion_protocol": {
+          "trigger": "MVP meets definition of done",
+          "agent_action": [
+            "Commit DONE.md with: timestamp, summary of what was built, and link to final src/",
+            "Open a pull request from feature/{problem-slug} to main with label done",
+            "Final commit message: 'chore: close cycle — MVP complete'"
+          ]
+        },
+        "output": {
+          "storage": "GitHub: /{problem-slug}/",
+          "required_files": [
+            "src/ — all source code",
+            "README.md — setup, dependencies, and run instructions for the specific stack used",
+            "PROBLEM.md — from Step 1",
+            "ARCHITECTURE.md — from Step 2",
+            "DONE.md or CANCELLED.md — written at cycle close"
+          ],
+          "definition_of_done": "The MVP runs without errors, demonstrates the core value proposition described in PROBLEM.md, and includes at least one working end-to-end user flow"
+        }
+      }
+    }
+  },
+  "execution_infrastructure": {
+    "step_1_and_2": {
+      "platform": "GitHub Actions",
+      "trigger": "cron: '0 0 * * *'",
+      "notes": "Stateless — reads memory from repo at start of each run, commits outputs to a new feature branch"
+    },
+    "step_3": {
+      "platform": "Railway",
+      "process_type": "Persistent worker (always-on)",
+      "language": "Python 3.11+",
+      "key_libraries": [
+        "anthropic",
+        "PyGithub",
+        "httpx",
+        "python-dotenv"
+      ],
+      "polling": "Watches for new feature branches and open Issues (labels: blocker, blocker-resolved, cycle-cancelled, cycle-resume) via GitHub API",
+      "notes": "Picks up where Step 2 leaves off. Responds to all lifecycle label changes. Language of solution code varies per problem."
+    }
+  },
+  "constraints_and_guardrails": [
+    "Do not select problems already solved by dominant commercial products",
+    "Do not commit secrets, API keys, or credentials — use environment variables",
+    "Technology choices must be justified in ARCHITECTURE.md — no arbitrary defaults",
+    "If a solution requires hardware or environments not directly accessible to the agent (e.g., physical sensors, proprietary hardware), flag this as a blocker in Step 3 rather than silently scoping it out",
+    "If an MVP cannot reach a meaningful state within one development cycle, explicitly descope and document what was cut and why in the README"
+  ]
+}
