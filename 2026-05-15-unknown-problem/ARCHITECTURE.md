@@ -1,1 +1,100 @@
-IyBBUlRJRkFDVCAxOiBBUkNISVRFQ1RVUkUubWQKCiMjIFNvbHV0aW9uIE92ZXJ2aWV3CkEgZGVza3RvcC1uYXRpdmUgYXBwbGljYXRpb24gYnVpbHQgd2l0aCBUYXVyaSAoUnVzdCBiYWNrZW5kICsgd2ViIGZyb250ZW5kKSBwcm92aWRpbmcgYSBsb2NhbC1maXJzdCwgcHJpdmFjeS1mb2N1c2VkIExMTSBpbnRlcmFjdGlvbiBlbnZpcm9ubWVudC4gVGhlIGFyY2hpdGVjdHVyZSBwcmlvcml0aXplcyB6ZXJvLWxhdGVuY3kgVUksIG9mZmxpbmUgY2FwYWJpbGl0eSwgYW5kIHNlY3VyZSBjcmVkZW50aWFsIG1hbmFnZW1lbnQgd2hpbGUgc3VwcG9ydGluZyBtdWx0aXBsZSBMTE0gcHJvdmlkZXJzIHRocm91Z2ggYSB1bmlmaWVkIGFic3RyYWN0aW9uIGxheWVyLgoKIyMgVGVjaG5vbG9neSBDaG9pY2VzCgoqKkNvcmUgRnJhbWV3b3JrOiBUYXVyaSB2MioqCi0gUnVzdCBiYWNrZW5kIHByb3ZpZGVzIG1lbW9yeSBzYWZldHksIHBlcmZvcm1hbmNlLCBhbmQgY3Jvc3MtcGxhdGZvcm0gY29tcGlsYXRpb24KLSBXZWIgZnJvbnRlbmQgKFJlYWN0ICsgVHlwZVNjcmlwdCkgZW5hYmxlcyByYXBpZCBVSSBkZXZlbG9wbWVudCB3aXRoIHJpY2ggY29tcG9uZW50IGVjb3N5c3RlbXMKLSA2MDBLQiBiaW5hcnkgb3ZlcmhlYWQgdnMgMTUwTUIrIEVsZWN0cm9uIG1ha2VzIGRpc3RyaWJ1dGlvbiBmZWFzaWJsZQotIE5hdGl2ZSBPUyBpbnRlZ3JhdGlvbiBmb3IgZmlsZSBzeXN0ZW0gYWNjZXNzLCB0cmF5IGljb25zLCBhbmQgc3lzdGVtIG5vdGlmaWNhdGlvbnMKCioqTExNIEludGVncmF0aW9uOiBDdXN0b20gUnVzdCBQcm92aWRlciBBYnN0cmFjdGlvbioqCi0gVW5pZmllZCBhc3luYyB0cmFpdCBmb3IgT3BlbkFJLCBBbnRocm9waWMsIEdvb2dsZSwgbG9jYWwgbW9kZWxzIChPbGxhbWEvbGxhbWEuY3BwKQotIEhUVFAvMiBzdHJlYW1pbmcgdmlhIHJlcXdlc3QgZm9yIFNTRSByZXNwb25zZXMKLSBMb2NhbCBtb2RlbCBzdXBwb3J0IHRocm91Z2ggRkZJIGJpbmRpbmdzIG9yIHN1YnByb2Nlc3MgbWFuYWdlbWVudAotIE5vIE1DUCBuZWVkZWTigJRkaXJlY3QgSFRUUCBjbGllbnQgaW50ZXJhY3Rpb24gaXMgc2ltcGxlciBhbmQgZmFzdGVyCgoqKlN0YXRlIE1hbmFnZW1lbnQqKgotIEZyb250ZW5kOiBadXN0YW5kIChsaWdodHdlaWdodCBSZWFjdCBzdGF0ZSkgKyBUYW5TdGFjayBRdWVyeSBmb3IgYXN5bmMgZGF0YQotIEJhY2tlbmQ6IEluLW1lbW9yeSBzdGF0ZSB3aXRoIFNRTGl0ZSBwZXJzaXN0ZW5jZSAoY29udmVyc2F0aW9ucywgc2V0dGluZ3MsIEFQSSBrZXlzKQotIEVuY3J5cHRlZCBjcmVkZW50aWFsIHN0b3JhZ2UgdXNpbmcgT1Mga2V5Y2hhaW4gKFdpbmRvd3MgQ3JlZGVudGlhbCBNYW5hZ2VyLCBtYWNPUyBLZXljaGFpbiwgTGludXggU2VjcmV0IFNlcnZpY2UpCgoqKkRhdGEgRmxvdyoqCkZyb250ZW5kIOKGkiBUYXVyaSBJUEMg4oaSIFJ1c3QgY29tbWFuZCBoYW5kbGVycyDihpIgTExNIHByb3ZpZGVyIGFic3RyYWN0aW9uIOKGkiBIVFRQIEFQSSAvIExvY2FsIHByb2Nlc3Mg4oaSIFN0cmVhbSByZXNwb25zZXMgdmlhIFRhdXJpIGV2ZW50cyDihpIgRnJvbnRlbmQgdXBkYXRlcwoKIyMgRGVwbG95bWVudCBUYXJnZXQKU2luZ2xlLWJpbmFyeSBleGVjdXRhYmxlcyBmb3IgV2luZG93cyAoeDY0KSwgbWFjT1MgKEludGVsICsgQXBwbGUgU2lsaWNvbiksIExpbnV4ICh4NjQsIEFwcEltYWdlKS4gQXV0by11cGRhdGVzIHZpYSBUYXVyaSdzIGJ1aWx0LWluIHVwZGF0ZXIgd2l0aCBHaXRIdWIgUmVsZWFzZXMuCgojIyBIdW1hbi1Bc3Npc3RhbmNlIFJlcXVpcmVtZW50cwotIEFQSSBrZXlzIGZyb20gdXNlcnMgZm9yIGNsb3VkIExMTSBwcm92aWRlcnMgKE9wZW5BSSwgQW50aHJvcGljLCBldGMuKQotIENvZGUgc2lnbmluZyBjZXJ0aWZpY2F0ZXMgZm9yIG1hY09TIG5vdGFyaXphdGlvbiBhbmQgV2luZG93cyBTbWFydFNjcmVlbiBieXBhc3MKLSBDSS9DRCBjb25maWd1cmF0aW9uIGZvciBjcm9zcy1wbGF0Zm9ybSBidWlsZHMgKEdpdEh1YiBBY3Rpb25zIHdpdGggcGxhdGZvcm0tc3BlY2lmaWMgcnVubmVycykKCiMjIEFyY2hpdGVjdHVyZSBEaWFncmFtCgpgYGBtZXJtYWlkCmdyYXBoIFRCCiAgICBzdWJncmFwaCAiRnJvbnRlbmQgKFJlYWN0ICsgVHlwZVNjcmlwdCkiCiAgICAgICAgQVtVSSBDb21wb25lbnRzXQogICAgICAgIEJbWnVzdGFuZCBTdGF0ZSBTdG9yZV0KICAgICAgICBDW1RhblN0YWNrIFF1ZXJ5XQogICAgZW5kCiAgICAKICAgIHN1YmdyYXBoICJUYXVyaSBJUEMgTGF5ZXIiCiAgICAgICAgRFtDb21tYW5kcyBBUEldCiAgICAgICAgRVtFdmVudCBFbWl0dGVyXQogICAgZW5kCiAgICAKICAgIHN1YmdyYXBoICJSdXN0IEJhY2tlbmQiCiAgICAgICAgRltDb21tYW5kIEhhbmRsZXJzXQogICAgICAgIEdbTExNIFByb3ZpZGVyIEFic3RyYWN0aW9uXQogICAgICAgIEhbQ29uZmlnIE1hbmFnZXJdCiAgICAgICAgSVtDcmVkZW50aWFsIFN0b3JlXQogICAgICAgIEpbU1FMaXRlIERhdGFiYXNlXQogICAgZW5kCiAgICAKICAgIHN1YmdyYXBoICJMTE0gUHJvdmlkZXJzIgogICAgICAgIEtbT3BlbkFJIEFQSV0KICAgICAgICBMW0FudGhyb3BpYyBBUEldCiAgICAgICAgTVtHb29nbGUgR2VtaW5pIEFQSV0KICAgICAgICBOW0xvY2FsIE9sbGFtYS9sbGFtYS5jcHBdCiAgICBlbmQKICAgIAogICAgc3ViZ3JhcGggIk9TIEludGVncmF0aW9uIgogICAgICAgIE9bU3lzdGVtIEtleWNoYWluXQogICAgICAgIFBbRmlsZSBTeXN0ZW1dCiAgICAgICAgUVtTeXN0ZW0gVHJheV0KICAgIGVuZAogICAgCiAgICBBIC0tPnxVc2VyIEFjdGlvbnN8IEQKICAgIEQgLS0+IEYKICAgIEYgLS0+IEcKICAgIEYgLS0+IEgKICAgIEYgLS0+IEkKICAgIEYgLS0+IEoKICAgIAogICAgRyAtLT58SFRUUC8yIFNTRXwgSwogICAgRyAtLT58SFRUUC8yIFNTRXwgTAogICAgRyAtLT58SFRUUC8yIFNTRXwgTQogICAgRyAtLT58U3VicHJvY2Vzcy9GRkl8IE4KICAgIAogICAgRyAtLT58U3RyZWFtIENodW5rc3wgRQogICAgRSAtLT58RXZlbnQgU3Vic2NyaXB0aW9ufCBDCiAgICBDIC0tPiBCCiAgICBCIC0tPiBBCiAgICAKICAgIEkgPC0tPnxFbmNyeXB0ZWQgU3RvcmFnZXwgTwogICAgRiA8LS0+fFJlYWQvV3JpdGV8IFAKICAgIEYgLS0+IFEKICAgIAogICAgSCAtLT4gSgogICAgCiAgICBzdHlsZSBBIGZpbGw6I2UxZjVmZgogICAgc3R5bGUgRiBmaWxsOiNmZmY0ZTEKICAgIHN0eWxlIEcgZmlsbDojZmZlMWUxCiAgICBzdHlsZSBKIGZpbGw6I2UxZmZlMQpgYGAK
+﻿# ARTIFACT 1: ARCHITECTURE.md
+
+## Solution Overview
+A desktop-native application built with Tauri (Rust backend + web frontend) providing a local-first, privacy-focused LLM interaction environment. The architecture prioritizes zero-latency UI, offline capability, and secure credential management while supporting multiple LLM providers through a unified abstraction layer.
+
+## Technology Choices
+
+**Core Framework: Tauri v2**
+- Rust backend provides memory safety, performance, and cross-platform compilation
+- Web frontend (React + TypeScript) enables rapid UI development with rich component ecosystems
+- 600KB binary overhead vs 150MB+ Electron makes distribution feasible
+- Native OS integration for file system access, tray icons, and system notifications
+
+**LLM Integration: Custom Rust Provider Abstraction**
+- Unified async trait for OpenAI, Anthropic, Google, local models (Ollama/llama.cpp)
+- HTTP/2 streaming via reqwest for SSE responses
+- Local model support through FFI bindings or subprocess management
+- No MCP needed—direct HTTP client interaction is simpler and faster
+
+**State Management**
+- Frontend: Zustand (lightweight React state) + TanStack Query for async data
+- Backend: In-memory state with SQLite persistence (conversations, settings, API keys)
+- Encrypted credential storage using OS keychain (Windows Credential Manager, macOS Keychain, Linux Secret Service)
+
+**Data Flow**
+Frontend → Tauri IPC → Rust command handlers → LLM provider abstraction → HTTP API / Local process → Stream responses via Tauri events → Frontend updates
+
+## Deployment Target
+Single-binary executables for Windows (x64), macOS (Intel + Apple Silicon), Linux (x64, AppImage). Auto-updates via Tauri's built-in updater with GitHub Releases.
+
+## Human-Assistance Requirements
+- API keys from users for cloud LLM providers (OpenAI, Anthropic, etc.)
+- Code signing certificates for macOS notarization and Windows SmartScreen bypass
+- CI/CD configuration for cross-platform builds (GitHub Actions with platform-specific runners)
+
+## Architecture Diagram
+
+```mermaid
+graph TB
+    subgraph "Frontend (React + TypeScript)"
+        A[UI Components]
+        B[Zustand State Store]
+        C[TanStack Query]
+    end
+    
+    subgraph "Tauri IPC Layer"
+        D[Commands API]
+        E[Event Emitter]
+    end
+    
+    subgraph "Rust Backend"
+        F[Command Handlers]
+        G[LLM Provider Abstraction]
+        H[Config Manager]
+        I[Credential Store]
+        J[SQLite Database]
+    end
+    
+    subgraph "LLM Providers"
+        K[OpenAI API]
+        L[Anthropic API]
+        M[Google Gemini API]
+        N[Local Ollama/llama.cpp]
+    end
+    
+    subgraph "OS Integration"
+        O[System Keychain]
+        P[File System]
+        Q[System Tray]
+    end
+    
+    A -->|User Actions| D
+    D --> F
+    F --> G
+    F --> H
+    F --> I
+    F --> J
+    
+    G -->|HTTP/2 SSE| K
+    G -->|HTTP/2 SSE| L
+    G -->|HTTP/2 SSE| M
+    G -->|Subprocess/FFI| N
+    
+    G -->|Stream Chunks| E
+    E -->|Event Subscription| C
+    C --> B
+    B --> A
+    
+    I <-->|Encrypted Storage| O
+    F <-->|Read/Write| P
+    F --> Q
+    
+    H --> J
+    
+    style A fill:#e1f5ff
+    style F fill:#fff4e1
+    style G fill:#ffe1e1
+    style J fill:#e1ffe1
+```
+
