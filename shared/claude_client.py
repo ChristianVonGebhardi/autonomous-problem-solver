@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 MODEL = "claude-sonnet-4-5"
 MAX_TOKENS = 8192
 MAX_RETRIES = 3
-RETRY_BACKOFF = [5, 15, 30]  # seconds between retries
+RETRY_BACKOFF = [30, 60, 120]  # seconds between retries
 
 
 class ClaudeClient:

@@ -12,6 +12,7 @@ from __future__ import annotations
 import logging
 import os
 import sys
+import time
 
 # Ensure project root is on the path (Actions runs from repo root)
 sys.path.insert(0, os.path.dirname(__file__))
@@ -104,6 +105,10 @@ def run_steps_1_and_2() -> None:
     logger.info("Committed PROBLEM.md to %s", branch)
 
     # --- Step 2: Architecture Design ---
+    # --- Pause between steps to respect rate limits ---
+    logger.info("Waiting 60s before Step 2 to respect token-per-minute rate limits...")
+    time.sleep(60)
+
     logger.info("Running Step 2: Architecture Design...")
     arch_raw = claude.complete(
         system=STEP2_SYSTEM,
