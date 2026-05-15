@@ -62,10 +62,11 @@ def run_steps_1_and_2() -> None:
 
     # --- Step 1: Load memory ---
     logger.info("Loading problem memory from repository...")
-    past_problems = github.load_all_problem_mds()
-    already_explored = [
-        extract_title_from_problem_md(p["content"]) for p in past_problems
-    ]
+    # TODO: Fix base64 decode issue in load_all_problem_mds()
+    # For now, disabled to unblock daily cycles
+    already_explored = []
+    
+    logger.info("Memory check temporarily disabled (0 past problems).")
     logger.info("Found %d past problem(s) in memory.", len(already_explored))
     logger.info("Already explored problems: %s", already_explored)
 
