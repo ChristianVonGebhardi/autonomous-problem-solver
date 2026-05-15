@@ -113,6 +113,21 @@ class ClaudeClient:
                 logger.debug("Message %d (role=%s): %d chars", i, msg.get("role"), len(msg["content"]))
 
         while True:
+            # Debug: print the actual request
+            import json
+            logger.warning("=== FULL REQUEST KWARGS ===")
+            logger.warning("Keys: %s", list(kwargs.keys()))
+            logger.warning("Model: %s", kwargs["model"])
+            logger.warning("Max tokens: %s", kwargs["max_tokens"])
+            logger.warning("System (first 200 chars): %s", kwargs["system"][:200])
+            logger.warning("Messages: %d total", len(kwargs["messages"]))
+            for i, msg in enumerate(kwargs["messages"]):
+                if isinstance(msg.get("content"), str):
+                    logger.warning("  Msg %d: role=%s, content length=%d", i, msg["role"], len(msg["content"]))
+                else:
+                    logger.warning("  Msg %d: role=%s, content type=%s", i, msg["role"], type(msg.get("content")))
+            logger.warning("=== END REQUEST ===")
+            
             response = self._client.messages.create(**kwargs)
             logger.debug("Claude response stop_reason=%s content_blocks=%d", response.stop_reason, len(response.content))
 
