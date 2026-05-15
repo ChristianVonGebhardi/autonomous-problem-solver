@@ -181,3 +181,8 @@ Once the problem archive grows beyond ~50 entries, consider adding a ChromaDB ve
 | `MAX_TOKENS` in `claude_client.py` | Code | `8192` | Max output per Claude call |
 | Cron schedule | `daily_cycle.yml` | `0 0 * * *` | When Steps 1 & 2 run |
 | Step 1 `max_tokens` | `actions_runner.py` | `4096` | Max length of PROBLEM.md generation |
+
+## Known Issues
+
+### Base64 encoded files on GitHub web UI
+When files are committed via the GitHub API, they may display as base64 gibberish in the GitHub web UI, though the actual stored content is correct. Files retrieved via `git` or the raw GitHub URL are readable. This is a quirk of PyGithub's `commit_file()` method. See [#1](https://github.com/ChristianVonGebhardi/autonomous-problem-solver/issues/1) for investigation.
