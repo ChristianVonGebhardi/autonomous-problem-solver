@@ -103,14 +103,14 @@ class ClaudeClient:
 
         accumulated_text: list[str] = []
 
-        while True:
-            logger.debug("Sending request to Claude:")
-            logger.debug("System prompt length: %d chars", len(system))
-            logger.debug("User messages count: %d", len(local_messages))
-            for i, msg in enumerate(local_messages):
-                if isinstance(msg.get("content"), str):
-                    logger.debug("Message %d (role=%s): %d chars", i, msg.get("role"), len(msg["content"]))
+        logger.debug("Sending request to Claude:")
+        logger.debug("System prompt length: %d chars", len(system))
+        logger.debug("User messages count: %d", len(local_messages))
+        for i, msg in enumerate(local_messages):
+            if isinstance(msg.get("content"), str):
+                logger.debug("Message %d (role=%s): %d chars", i, msg.get("role"), len(msg["content"]))
 
+        while True:
             response = self._client.messages.create(**kwargs)
             logger.debug("Claude response stop_reason=%s content_blocks=%d", response.stop_reason, len(response.content))
 
