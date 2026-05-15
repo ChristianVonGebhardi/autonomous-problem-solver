@@ -121,13 +121,14 @@ class ClaudeClient:
             logger.warning("Max tokens: %s", kwargs["max_tokens"])
             logger.warning("System (first 200 chars): %s", kwargs["system"][:200])
             logger.warning("Messages: %d total", len(kwargs["messages"]))
+            logger.warning("User message (full): %s", kwargs["messages"][0]["content"][:500])
             for i, msg in enumerate(kwargs["messages"]):
                 if isinstance(msg.get("content"), str):
                     logger.warning("  Msg %d: role=%s, content length=%d", i, msg["role"], len(msg["content"]))
                 else:
                     logger.warning("  Msg %d: role=%s, content type=%s", i, msg["role"], type(msg.get("content")))
             logger.warning("=== END REQUEST ===")
-            
+
             response = self._client.messages.create(**kwargs)
             logger.debug("Claude response stop_reason=%s content_blocks=%d", response.stop_reason, len(response.content))
 

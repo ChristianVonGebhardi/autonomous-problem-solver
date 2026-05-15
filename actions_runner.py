@@ -67,6 +67,7 @@ def run_steps_1_and_2() -> None:
         extract_title_from_problem_md(p["content"]) for p in past_problems
     ]
     logger.info("Found %d past problem(s) in memory.", len(already_explored))
+    logger.info("Already explored problems: %s", already_explored)
 
     # --- Step 1: Brainstorm ---
     logger.info("Running Step 1: Problem Brainstorm (web search disabled)...")
