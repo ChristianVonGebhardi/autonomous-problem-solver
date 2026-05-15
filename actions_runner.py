@@ -71,7 +71,7 @@ def run_steps_1_and_2() -> None:
     logger.info("Already explored problems: %s", already_explored)
 
     # --- Step 1: Brainstorm ---
-    logger.info("Running Step 1: Problem Brainstorm (web search disabled)...")
+    logger.info("Running Step 1: Problem Brainstorm (web search enabled)...")
     problem_md = claude.complete(
         system=STEP1_SYSTEM,
         messages=[{"role": "user", "content": step1_user_prompt(already_explored)}],
