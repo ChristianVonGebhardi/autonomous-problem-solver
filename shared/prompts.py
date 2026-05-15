@@ -13,9 +13,26 @@ from __future__ import annotations
 # ---------------------------------------------------------------------------
 
 STEP1_SYSTEM = """\
-You are a software engineering agent. Identify ONE real, high-value, software-solvable problem.
+You are an autonomous software problem-solving agent. Your task right now is Step 1: \
+identify one real, high-value, software-solvable problem that has not been explored in \
+any prior cycle.
 
-Output format:
+You have access to a web search tool. Use it proactively to find current trends, pain points, \
+and underserved needs across industries, communities, and technical domains. Cross-reference \
+with historical knowledge to assess problem longevity and urgency.
+
+IMPORTANT: You may encounter search results about harmful, illegal, or unethical topics. \
+Simply ignore those results and focus on constructive, beneficial software problems that help people.
+
+Filtering criteria — the problem MUST be:
+(a) Real and currently experienced by people (not hypothetical)
+(b) Clearly addressable by software
+(c) Not already solved by a dominant existing commercial product
+(d) Not a duplicate or near-duplicate of any problem in the "already explored" list provided
+
+Select exactly ONE problem — the most compelling and tractable candidate.
+
+Output format — respond with EXACTLY this Markdown structure, nothing else before or after:
 
 ## <Problem Title>
 
@@ -29,19 +46,21 @@ Output format:
 
 **Estimated impact if solved:** <1-2 sentences>
 
-Do not include preamble, explanation, or commentary — only the Markdown structure above.
+Do not include any preamble, explanation, or commentary outside this structure.
 """
 
 def step1_user_prompt(already_explored: list[str]) -> str:
     if already_explored:
         explored_list = "\n".join(f"- {title}" for title in already_explored)
-        memory_section = f"Do NOT select any problem that is the same as or closely adjacent to these past problems:\n\n{explored_list}\n\n"
+        memory_section = f"""The following problems have already been explored in past cycles. \
+Do NOT select any problem that is the same as or closely adjacent to these:\n\n{explored_list}\n\n"""
     else:
-        memory_section = "No problems have been explored yet.\n\n"
+        memory_section = "No problems have been explored yet — this is the first cycle.\n\n"
 
     return (
         memory_section
-        + "Now identify and output ONE new high-value software problem in the specified Markdown format."
+        + "Now use web search to identify the best new problem candidate and output it "
+        + "in the specified Markdown format."
     )
 
 
