@@ -14,6 +14,8 @@ from typing import Optional
 import anthropic
 
 logger = logging.getLogger(__name__)
+# Force this logger to INFO level regardless of parent config
+logger.setLevel(logging.INFO)
 
 MODEL = "claude-sonnet-4-5"
 MAX_TOKENS = 8192

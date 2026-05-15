@@ -40,6 +40,7 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     datefmt="%Y-%m-%dT%H:%M:%SZ",
 )
+logging.getLogger("shared").setLevel(logging.INFO)
 logger = logging.getLogger("actions_runner")
 
 
