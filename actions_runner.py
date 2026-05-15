@@ -106,8 +106,8 @@ def run_steps_1_and_2() -> None:
 
     # --- Step 2: Architecture Design ---
     # --- Pause between steps to respect rate limits ---
-    logger.info("Waiting 60s before Step 2 to respect token-per-minute rate limits...")
-    time.sleep(60)
+    logger.info("Waiting 120s before Step 2 to respect token-per-minute rate limits...")
+    time.sleep(120)
 
     logger.info("Running Step 2: Architecture Design...")
     arch_raw = claude.complete(
