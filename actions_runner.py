@@ -72,7 +72,7 @@ def run_steps_1_and_2() -> None:
     problem_md = claude.complete(
         system=STEP1_SYSTEM,
         messages=[{"role": "user", "content": step1_user_prompt(already_explored)}],
-        use_web_search=True,
+        use_web_search=False,   # Disable for now because Claude returns empty too often maybe caused by websearch
         max_tokens=4096,
     )
     logger.info("Step 1 complete. Problem MD:\n%s", truncate(problem_md, 600))
