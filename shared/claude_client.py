@@ -116,10 +116,15 @@ class ClaudeClient:
                     elif block.type == "tool_use":
                         # Client-side tool use (not web_search, which is server-side)
                         tool_uses.append(block)
-
+            
             if response.stop_reason in ("end_turn", "stop_sequence") or not tool_uses:
+                result = "\n".join(accumulated_text).strip()
+                if not result:
+                    logger.error("Claude returned empty response (stop_reason=%s, content_blocks=%d)", 
+                                response.stop_reason, len(response.content))
+                    raise RuntimeError("Claude API returned empty response. Check logs for details.")
                 # Done — return all accumulated text
-                return "\n".join(accumulated_text).strip()
+                return result
 
             # Client-side tool_use loop (future extensibility — web_search never reaches here)
             local_messages.append({
