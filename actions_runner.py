@@ -63,9 +63,14 @@ def run_steps_1_and_2() -> None:
     # --- Step 1: Load memory ---
     logger.info("Loading problem memory from repository...")
     past_problems = github.load_all_problem_mds()
-    already_explored = [
-        extract_title_from_problem_md(p["content"]) for p in past_problems
-    ]
+    already_explored = []
+    for p in past_problems:
+    title = extract_title_from_problem_md(p["content"])
+    # Skip if title looks like base64 (long string with no spaces)
+    if " " in title and len(title) < 200:
+        already_explored.append(title)
+    else:
+        logger.warning("Skipping base64-encoded memory entry for slug=%s", p["slug"])
     
     logger.info("Found %d past problem(s) in memory.", len(already_explored))
     logger.info("Already explored problems: %s", already_explored)
