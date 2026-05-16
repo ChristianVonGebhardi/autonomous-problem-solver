@@ -215,7 +215,8 @@ def _handle_resumes(
 
         cancelled_md = github.read_file(f"{slug}/CANCELLED.md", branch)
         if not cancelled_md:
-            logger.warning("cycle-resume for slug=%s but no CANCELLED.md found — treating as fresh", slug)
+            logger.warning("cycle-resume for slug=%s but no CANCELLED.md found — running as fresh resume", slug)
+            cancelled_md = "No CANCELLED.md found — this cycle was blocked, not cancelled. Resume from last committed state."
             # Fall through to fresh handler
             continue
 
