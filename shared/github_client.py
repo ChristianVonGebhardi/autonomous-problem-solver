@@ -174,7 +174,6 @@ class GitHubClient:
         Creates or updates a single file on a branch.
         Uses UTF-8 encoding. Retries once on 409 conflict.
         """
-        encoded = base64.b64encode(content.encode("utf-8")).decode("utf-8")
         # Check if file already exists (need sha for update)
         sha: Optional[str] = None
         try:
@@ -190,7 +189,7 @@ class GitHubClient:
                     self._repo.update_file(
                         path=path,
                         message=commit_message,
-                        content=encoded,
+                        content=content,  # plain text — PyGithub encodes internally
                         sha=sha,
                         branch=branch,
                     )
@@ -198,7 +197,7 @@ class GitHubClient:
                     self._repo.create_file(
                         path=path,
                         message=commit_message,
-                        content=encoded,
+                        content=content,  # plain text — PyGithub encodes internally
                         branch=branch,
                     )
                 logger.info("Committed %s to branch %s", path, branch)
@@ -207,7 +206,6 @@ class GitHubClient:
                 if e.status == 409 and attempt == 0:
                     logger.warning("409 conflict on %s — retrying after 2s", path)
                     time.sleep(2)
-                    # Refresh sha
                     try:
                         existing = self._repo.get_contents(path, ref=branch)
                         sha = existing.sha
