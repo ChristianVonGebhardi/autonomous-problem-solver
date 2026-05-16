@@ -61,7 +61,8 @@ class ClaudeClient:
                     logger.warning("Rate limit persists after %d retries. Reducing prompt size...", MAX_RETRIES)
                     messages_reduced = self._reduce_prompt_size(messages)
                     if messages_reduced != messages:
-                        logger.warning("Retrying with reduced prompt size.")
+                        logger.warning("Retrying with reduced prompt size after 60s wait...")
+                        time.sleep(60)
                         try:
                             return self._run_completion(
                                 system=system,
