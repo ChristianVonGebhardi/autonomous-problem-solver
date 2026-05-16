@@ -40,11 +40,7 @@ class ClaudeClient:
     ) -> str:
         """
         Calls the Claude API and returns the final assistant text.
-
-        If use_web_search=True, the web_search tool is registered and the method
-        handles the full tool-use loop automatically (tool_use → tool_result → text).
-
-        Retries up to MAX_RETRIES times on transient API errors.
+        On persistent rate limits, automatically reduces prompt size and retries.
         """
         tools = []
         if use_web_search:
@@ -60,6 +56,22 @@ class ClaudeClient:
                 )
             except anthropic.RateLimitError as e:
                 wait = RETRY_BACKOFF[min(attempt, len(RETRY_BACKOFF) - 1)]
+                if attempt == MAX_RETRIES - 1:
+                    # Last attempt failed with rate limit — try reducing prompt
+                    logger.warning("Rate limit persists after %d retries. Reducing prompt size...", MAX_RETRIES)
+                    messages_reduced = self._reduce_prompt_size(messages)
+                    if messages_reduced != messages:
+                        logger.warning("Retrying with reduced prompt size.")
+                        try:
+                            return self._run_completion(
+                                system=system,
+                                messages=messages_reduced,
+                                tools=tools,
+                                max_tokens=max_tokens,
+                            )
+                        except Exception as e2:
+                            logger.error("Reduced prompt retry failed: %s", e2)
+                            raise
                 logger.warning("Rate limit hit (attempt %d/%d). Waiting %ds. %s", attempt + 1, MAX_RETRIES, wait, e)
                 time.sleep(wait)
             except anthropic.APIStatusError as e:
@@ -75,6 +87,26 @@ class ClaudeClient:
                 time.sleep(wait)
 
         raise RuntimeError(f"Claude API failed after {MAX_RETRIES} attempts.")
+
+    def _reduce_prompt_size(self, messages: list[dict]) -> list[dict]:
+        """
+        Reduces message size by truncating long content.
+        Returns modified messages list, or original if already small.
+        """
+        reduced = []
+        for msg in messages:
+            if isinstance(msg.get("content"), str) and len(msg["content"]) > 500:
+                # Truncate to 500 chars with ellipsis
+                truncated = msg["content"][:500] + "...\n[content truncated due to rate limiting]"
+                reduced.append({
+                    "role": msg["role"],
+                    "content": truncated,
+                })
+            else:
+                reduced.append(msg)
+        if reduced == messages:
+            logger.warning("Prompt already minimal — cannot reduce further.")
+        return reduced
 
     def _run_completion(
         self,

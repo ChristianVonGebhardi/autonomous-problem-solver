@@ -186,3 +186,10 @@ Once the problem archive grows beyond ~50 entries, consider adding a ChromaDB ve
 
 ### Base64 encoded files on GitHub web UI
 When files are committed via the GitHub API, they may display as base64 gibberish in the GitHub web UI, though the actual stored content is correct. Files retrieved via `git` or the raw GitHub URL are readable. This is a quirk of PyGithub's `commit_file()` method. See [#1](https://github.com/ChristianVonGebhardi/autonomous-problem-solver/issues/1) for investigation.
+
+### Rate limiting on free tier
+The free tier has a 30,000 token-per-minute limit. When Steps 1 and 2 run back-to-back with large prompts (especially when web search generates verbose results), the limit can be exceeded even with pauses between steps.
+
+**Mitigation:** The agent automatically retries rate-limited requests, and if all retries fail, it reduces prompt size and tries once more before giving up.
+
+**Solution:** Upgrade to a higher Anthropic Tier, e.g. Tier 2 ($40/month spend cap) for 80,000 TPM, which eliminates this issue.
