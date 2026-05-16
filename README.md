@@ -58,7 +58,17 @@ Go to **Settings → Secrets and variables → Actions → New repository secret
 
 The `GITHUB_TOKEN` secret is provided automatically by GitHub Actions — you do not need to add it.
 
-### 3. Create a GitHub Personal Access Token for the Railway worker
+### 3. Test the GitHub Actions workflow
+
+The workflow is already configured in `.github/workflows/daily_cycle.yml`. It triggers daily at **00:00 UTC**.
+
+To test it manually: go to **Actions → Daily Problem Cycle → Run workflow**.
+
+A successful run creates a new `feature/*` branch with `PROBLEM.md` and `ARCHITECTURE.md` committed, and opens a tracking Issue labelled `in-progress`.
+
+> **Note:** Use **Run workflow** (the green button) to trigger a fresh run. The **Re-run jobs** button replays the original run with the original code snapshot — it will not pick up new commits.
+
+### 4. Create a GitHub Personal Access Token for the Railway worker
 
 The Railway worker operates outside GitHub Actions and cannot use `GITHUB_TOKEN`. It needs a PAT.
 
@@ -70,7 +80,7 @@ The Railway worker operates outside GitHub Actions and cannot use `GITHUB_TOKEN`
    - **Metadata**: Read-only (required)
 3. Copy the token — you'll use it in the next step as `GH_PAT`.
 
-### 4. Deploy to Railway
+### 5. Deploy to Railway
 
 1. Go to [railway.app](https://railway.app) and create a new project.
 2. Connect your GitHub repository.
@@ -80,7 +90,7 @@ The Railway worker operates outside GitHub Actions and cannot use `GITHUB_TOKEN`
 | Variable | Value |
 |---|---|
 | `ANTHROPIC_API_KEY` | Your Anthropic API key |
-| `GH_PAT` | The PAT you created in step 3 |
+| `GH_PAT` | The PAT you created in step 4 |
 | `REPO_OWNER` | Your GitHub username |
 | `REPO_NAME` | `autonomous-problem-solver` |
 | `POLL_INTERVAL_SECONDS` | `60` (or adjust as needed) |
@@ -88,12 +98,6 @@ The Railway worker operates outside GitHub Actions and cannot use `GITHUB_TOKEN`
 5. Deploy. The worker will start and begin polling immediately.
 
 > **Note:** Railway's free tier suspends workers after inactivity. Use the **Hobby** plan ($5/mo) or higher to keep the worker always-on.
-
-### 5. Enable the GitHub Actions workflow
-
-The workflow is already configured in `.github/workflows/daily_cycle.yml`. It triggers daily at **00:00 UTC**.
-
-To test it manually: go to **Actions → Daily Problem Cycle → Run workflow**.
 
 ---
 
@@ -184,12 +188,16 @@ Once the problem archive grows beyond ~50 entries, consider adding a ChromaDB ve
 
 ## Known Issues
 
-### Base64 encoded files on GitHub web UI
-When files are committed via the GitHub API, they may display as base64 gibberish in the GitHub web UI, though the actual stored content is correct. Files retrieved via `git` or the raw GitHub URL are readable. This is a quirk of PyGithub's `commit_file()` method. See [#1](https://github.com/ChristianVonGebhardi/autonomous-problem-solver/issues/1) for investigation.
-
 ### Rate limiting on free tier
 The free tier has a 30,000 token-per-minute limit. When Steps 1 and 2 run back-to-back with large prompts (especially when web search generates verbose results), the limit can be exceeded even with pauses between steps.
 
 **Mitigation:** The agent automatically retries rate-limited requests, and if all retries fail, it reduces prompt size and tries once more before giving up.
 
 **Solution:** Upgrade to a higher Anthropic Tier, e.g. Tier 2 ($40/month spend cap) for 80,000 TPM, which eliminates this issue.
+
+### Old branches with base64-encoded files
+Branches created before v0.2.0 have `PROBLEM.md` and `ARCHITECTURE.md` stored as base64-encoded text — a bug in the original `commit_file()` implementation that was fixed in commit `c2e92be`. These files display as gibberish in the GitHub web UI.
+
+**Mitigation:** The memory loader automatically filters out base64-encoded entries and skips them. New branches created after v0.2.0 are unaffected.
+
+**Cleanup:** Old branches can be deleted at any time with `git push origin --delete feature/<branch-name>`.
