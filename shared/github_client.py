@@ -93,7 +93,8 @@ class GitHubClient:
                 path = f"{slug}/PROBLEM.md"
                 try:
                     content_file: ContentFile = self._repo.get_contents(path, ref=branch.name)
-                    text = base64.b64decode(content_file.content).decode("utf-8")
+                    # Strip embedded newlines — GitHub API paginates base64 output
+                    text = base64.b64decode(content_file.content.replace("\n", "")).decode("utf-8")
                     results.append({"slug": slug, "content": text})
                     logger.debug("Loaded PROBLEM.md for slug=%s", slug)
                 except GithubException as e:
