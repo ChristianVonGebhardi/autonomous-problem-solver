@@ -1,6 +1,6 @@
 {
   "meta": {
-    "version": "3.0.0",
+    "version": "3.0.1",
     "target_model": "claude-sonnet-4-5",
     "purpose": "Autonomous problem-solving agent that identifies real-world problems and iteratively builds software MVPs",
     "schedule": {

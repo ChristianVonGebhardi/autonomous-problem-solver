@@ -194,10 +194,3 @@ The free tier has a 30,000 token-per-minute limit. When Steps 1 and 2 run back-t
 **Mitigation:** The agent automatically retries rate-limited requests, and if all retries fail, it reduces prompt size and tries once more before giving up.
 
 **Solution:** Upgrade to a higher Anthropic Tier, e.g. Tier 2 ($40/month spend cap) for 80,000 TPM, which eliminates this issue.
-
-### Old branches with base64-encoded files
-Branches created before v0.2.0 have `PROBLEM.md` and `ARCHITECTURE.md` stored as base64-encoded text — a bug in the original `commit_file()` implementation that was fixed in commit `c2e92be`. These files display as gibberish in the GitHub web UI.
-
-**Mitigation:** The memory loader automatically filters out base64-encoded entries and skips them. New branches created after v0.2.0 are unaffected.
-
-**Cleanup:** Old branches can be deleted at any time with `git push origin --delete feature/<branch-name>`.
