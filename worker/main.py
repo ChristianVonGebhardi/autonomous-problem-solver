@@ -217,8 +217,6 @@ def _handle_resumes(
         if not cancelled_md:
             logger.warning("cycle-resume for slug=%s but no CANCELLED.md found — running as fresh resume", slug)
             cancelled_md = "No CANCELLED.md found — this cycle was blocked, not cancelled. Resume from last committed state."
-            # Fall through to fresh handler
-            continue
 
         logger.info("Resuming cycle for slug=%s (Issue #%d)", slug, issue.number)
 
