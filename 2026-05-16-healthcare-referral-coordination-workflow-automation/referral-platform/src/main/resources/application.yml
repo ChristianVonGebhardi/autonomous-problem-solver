@@ -1,0 +1,103 @@
+spring:
+  application:
+    name: referral-platform
+  
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:referral_platform}
+    username: ${DB_USER:referral_user}
+    password: ${DB_PASSWORD:referral_pass}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
+  
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.spatial.dialect.postgis.PostgisPG95Dialect
+        format_sql: true
+    show-sql: false
+  
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+  
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 60000
+  
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: referral-platform
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    
+  security:
+    user:
+      name: admin
+      password: admin123
+
+server:
+  port: ${SERVER_PORT:8080}
+  servlet:
+    context-path: /
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,prometheus,info
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+# Application Configuration
+app:
+  mock-mode: ${MOCK_MODE:true}
+  
+  temporal:
+    host: ${TEMPORAL_HOST:localhost}
+    port: ${TEMPORAL_PORT:7233}
+    namespace: default
+    task-queue: referral-workflow
+  
+  twilio:
+    account-sid: ${TWILIO_ACCOUNT_SID:}
+    auth-token: ${TWILIO_AUTH_TOKEN:}
+    phone-number: ${TWILIO_PHONE_NUMBER:}
+  
+  sendgrid:
+    api-key: ${SENDGRID_API_KEY:}
+    from-email: ${SENDGRID_FROM_EMAIL:noreply@healthtech.example.com}
+  
+  azure-openai:
+    endpoint: ${AZURE_OPENAI_ENDPOINT:}
+    key: ${AZURE_OPENAI_KEY:}
+    deployment: ${AZURE_OPENAI_DEPLOYMENT:gpt-4}
+  
+  security:
+    jwt:
+      secret: ${JWT_SECRET:your_jwt_secret_key_must_be_at_least_256_bits_long_for_hs256}
+      expiration: ${JWT_EXPIRATION:86400000}
+
+logging:
+  level:
+    com.healthtech.referral: DEBUG
+    org.springframework.kafka: INFO
+    io.temporal: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
