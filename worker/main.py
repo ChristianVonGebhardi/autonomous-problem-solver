@@ -296,6 +296,12 @@ def _qualifies_for_step3(pb: ProblemBranch, github: GitHubClient) -> bool:
         return False
     if pb.has_cancelled_md:
         return False
+    
+    # Skip branches with base64-encoded PROBLEM.md (created before v0.2.0)
+    problem_content = github.read_file(f"{pb.slug}/PROBLEM.md", pb.branch_name)
+    if problem_content and " " not in problem_content[:100]:
+        logger.warning("Skipping slug=%s — PROBLEM.md appears base64-encoded", pb.slug)
+        return False
 
     # Check for open blocker issue
     blocker_issues = github.get_issues_by_label("blocker", state="open")
