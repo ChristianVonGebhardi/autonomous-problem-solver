@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 # Force this logger to INFO level regardless of parent config
 logger.setLevel(logging.INFO)
 
-MODEL = "claude-sonnet-4-5"
+MODEL = "claude-sonnet-4-6"
 MAX_TOKENS = 8192
 MAX_RETRIES = 3
 RETRY_BACKOFF = [30, 60, 120]  # seconds between retries
@@ -146,21 +146,12 @@ class ClaudeClient:
                 logger.debug("Message %d (role=%s): %d chars", i, msg.get("role"), len(msg["content"]))
 
         while True:
-            # Debug: print the actual request
-            import json
-            logger.warning("=== FULL REQUEST KWARGS ===")
-            logger.warning("Keys: %s", list(kwargs.keys()))
-            logger.warning("Model: %s", kwargs["model"])
-            logger.warning("Max tokens: %s", kwargs["max_tokens"])
-            logger.warning("System (first 200 chars): %s", kwargs["system"][:200])
-            logger.warning("Messages: %d total", len(kwargs["messages"]))
-            logger.warning("User message (full): %s", kwargs["messages"][0]["content"][:500])
+            logger.debug("=== REQUEST KWARGS ===")
+            logger.debug("Model: %s | Max tokens: %s | Messages: %d", kwargs["model"], kwargs["max_tokens"], len(kwargs["messages"]))
+            logger.debug("System (first 200 chars): %s", kwargs["system"][:200])
             for i, msg in enumerate(kwargs["messages"]):
                 if isinstance(msg.get("content"), str):
-                    logger.warning("  Msg %d: role=%s, content length=%d", i, msg["role"], len(msg["content"]))
-                else:
-                    logger.warning("  Msg %d: role=%s, content type=%s", i, msg["role"], type(msg.get("content")))
-            logger.warning("=== END REQUEST ===")
+                    logger.debug("  Msg %d: role=%s, content length=%d", i, msg["role"], len(msg["content"]))
 
             response = self._client.messages.create(**kwargs)
             logger.debug("Claude response stop_reason=%s content_blocks=%d", response.stop_reason, len(response.content))
