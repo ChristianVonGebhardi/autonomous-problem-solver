@@ -13,6 +13,7 @@ import logging
 import os
 import sys
 import time
+import re
 
 # Ensure project root is on the path (Actions runs from repo root)
 sys.path.insert(0, os.path.dirname(__file__))
@@ -83,7 +84,9 @@ def run_steps_1_and_2() -> None:
         use_web_search=True,
         max_tokens=4096,
     )
-    logger.info("Step 1 complete. Problem MD:\n%s", truncate(problem_md, 600))
+    # Fix spurious spaces before punctuation (artifact of web search citation stripping)
+    problem_md = re.sub(r'\s+([,\.;:!?])', r'\1', problem_md)
+    logger.info("Step 1 complete. Problem MD:\n%s", truncate(problem_md, 600))    
 
     # --- Derive slug ---
     title = extract_title_from_problem_md(problem_md)
