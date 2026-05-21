@@ -251,9 +251,11 @@ class GitHubClient:
         what_was_attempted: str,
         resolution_options: list[str],
         impact_if_unresolved: str,
+        cycle_issue_number: Optional[int] = None,
     ) -> Issue:
         """Opens a blocker Issue following the spec's format."""
         options_md = "\n".join(f"- {opt}" for opt in resolution_options)
+        cycle_ref = f"\n**Cycle tracking issue:** #{cycle_issue_number}\n" if cycle_issue_number else ""
         body = f"""## What is blocked
 {what_is_blocked}
 
@@ -265,11 +267,11 @@ class GitHubClient:
 
 ## Impact if unresolved
 {impact_if_unresolved}
-
+{cycle_ref}
 ---
-**To cancel this cycle:** Close this Issue and add the label `cycle-cancelled` (optionally add a comment with your reason).
+**To unblock this cycle:** Resolve the issue above, then add label `cycle-resume` to this Issue or to #{cycle_issue_number if cycle_issue_number else 'the [CYCLE] issue'}.
 
-**To resume a cancelled cycle later:** Reopen this Issue or open a new one with label `cycle-resume` referencing `{slug}`.
+**To cancel this cycle:** Close this Issue and add the label `cycle-cancelled` (optionally add a comment with your reason).
 """
         issue = self._repo.create_issue(
             title=f"[BLOCKER] {slug} — {summary}",

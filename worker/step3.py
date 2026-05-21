@@ -252,20 +252,36 @@ class Step3Runner:
     def _handle_blocker(self, blocker: BlockerInfo) -> str:
         """Opens a blocker Issue and updates labels."""
         logger.info("[%s] Blocker encountered: %s", self.slug, blocker.summary)
+
+        # Find the [CYCLE] issue number for cross-reference
+        cycle_issue_number = self._get_cycle_issue_number()
+
         try:
             self.github.create_blocker_issue(
                 slug=self.slug,
                 summary=blocker.summary,
                 what_is_blocked=blocker.what_is_blocked,
                 what_was_attempted=blocker.what_was_attempted,
-                resolution_options=blocker.resolution_options or ["Provide missing information and reopen with label blocker-resolved"],
+                resolution_options=blocker.resolution_options or ["Provide missing information and add label cycle-resume to the [CYCLE] issue"],
                 impact_if_unresolved=blocker.impact_if_unresolved,
+                cycle_issue_number=cycle_issue_number,
             )
         except Exception as e:
             logger.error("[%s] Failed to create blocker Issue: %s", self.slug, e)
 
         self._update_cycle_issue_labels(remove="in-progress", add="blocker")
         return "blocked"
+
+    def _get_cycle_issue_number(self) -> Optional[int]:
+        """Finds the [CYCLE] issue number for this slug."""
+        try:
+            issues = self.github.get_open_issues_for_slug(self.slug)
+            for issue in issues:
+                if issue.title.startswith(f"[CYCLE] {self.slug}"):
+                    return issue.number
+        except Exception as e:
+            logger.warning("[%s] Could not find cycle issue number: %s", self.slug, e)
+        return None
 
     def handle_cancelled(self, blocker_description: str, human_reason: Optional[str]) -> None:
         """Commits CANCELLED.md. Called by the main loop when the cycle is cancelled."""
