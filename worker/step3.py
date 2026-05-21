@@ -168,15 +168,18 @@ class Step3Runner:
 
     def _load_existing_src(self) -> dict[str, str]:
         """
-        Enumerates and reads all files under {slug}/src/ on the feature branch.
-        Returns a dict of {relative_path: content}.
+        Enumerates and reads all source files under the slug root on the feature branch.
+        Excludes known non-source files (PROBLEM.md, ARCHITECTURE.md, DONE.md,
+        CANCELLED.md, README.md). Returns a dict of {relative_path: content}.
         """
+        EXCLUDED_FILES = {
+            "PROBLEM.md", "ARCHITECTURE.md", "DONE.md", "CANCELLED.md", "README.md"
+        }
         result = {}
         try:
-            contents = self.github._repo.get_contents(f"{self.slug}/src", ref=self.branch)
+            contents = self.github._repo.get_contents(self.slug, ref=self.branch)
             if not isinstance(contents, list):
                 contents = [contents]
-            # Recursively read — simple single-level for now
             queue = list(contents)
             while queue:
                 item = queue.pop(0)
@@ -187,13 +190,15 @@ class Step3Runner:
                     else:
                         queue.append(sub)
                 else:
+                    filename = item.path.split("/")[-1]
+                    if filename in EXCLUDED_FILES:
+                        continue
                     text = self.github.read_file(item.path, self.branch)
                     if text is not None:
-                        # Use path relative to slug root
                         rel_path = item.path[len(f"{self.slug}/"):]
                         result[rel_path] = text
         except Exception as e:
-            logger.debug("[%s] No existing src/ found or error reading it: %s", self.slug, e)
+            logger.debug("[%s] No existing files found or error reading slug root: %s", self.slug, e)
         return result
 
     def _commit_src_files(self, files: dict[str, str]) -> None:
