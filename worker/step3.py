@@ -111,7 +111,8 @@ class Step3Runner:
                 system=STEP3_SYSTEM,
                 messages=[{"role": "user", "content": prompt}],
                 use_web_search=False,
-                max_tokens=32768, # attempt to fix Claude's response cut off mid-file
+                use_streaming=True,
+                max_tokens=16384,
             )
         except Exception as e:
             logger.error("[%s] Claude API call failed: %s", self.slug, e)

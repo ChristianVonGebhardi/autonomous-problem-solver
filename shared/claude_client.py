@@ -36,11 +36,14 @@ class ClaudeClient:
         system: str,
         messages: list[dict],
         use_web_search: bool = False,
+        use_streaming: bool = False,
         max_tokens: int = MAX_TOKENS,
     ) -> str:
         """
         Calls the Claude API and returns the final assistant text.
         On persistent rate limits, automatically reduces prompt size and retries.
+        use_streaming=True is required for large max_tokens values (>~8192) to avoid
+        HTTP timeout errors from the SDK.
         """
         tools = []
         if use_web_search:
@@ -53,11 +56,11 @@ class ClaudeClient:
                     messages=messages,
                     tools=tools,
                     max_tokens=max_tokens,
+                    use_streaming=use_streaming,
                 )
             except anthropic.RateLimitError as e:
                 wait = RETRY_BACKOFF[min(attempt, len(RETRY_BACKOFF) - 1)]
                 if attempt == MAX_RETRIES - 1:
-                    # Last attempt failed with rate limit — try reducing prompt
                     logger.warning("Rate limit persists after %d retries. Reducing prompt size...", MAX_RETRIES)
                     messages_reduced = self._reduce_prompt_size(messages)
                     if messages_reduced != messages:
@@ -69,6 +72,7 @@ class ClaudeClient:
                                 messages=messages_reduced,
                                 tools=tools,
                                 max_tokens=max_tokens,
+                                use_streaming=use_streaming,
                             )
                         except Exception as e2:
                             logger.error("Reduced prompt retry failed: %s", e2)
@@ -115,17 +119,15 @@ class ClaudeClient:
         messages: list[dict],
         tools: list[dict],
         max_tokens: int,
+        use_streaming: bool = False,
     ) -> str:
         """
-        Runs the full agentic loop: keeps calling the API until stop_reason is
-        'end_turn' or 'stop_sequence'. Handles tool_use blocks transparently.
-
-        For web_search_20250305: this is a "server-side" tool. The API handles
-        the search internally and returns results as web_search_tool_result blocks
-        in the response content. We simply accumulate all text blocks across turns
-        until stop_reason is 'end_turn'.
+        Runs the full agentic loop until stop_reason is 'end_turn' or 'stop_sequence'.
+        When use_streaming=True, uses the streaming API to avoid SDK timeout errors
+        for large max_tokens values. Web search tools are incompatible with streaming
+        and must use use_streaming=False.
         """
-        local_messages = list(messages)  # don't mutate caller's list
+        local_messages = list(messages)
 
         kwargs: dict = dict(
             model=MODEL,
@@ -138,44 +140,40 @@ class ClaudeClient:
 
         accumulated_text: list[str] = []
 
-        logger.debug("Sending request to Claude:")
-        logger.debug("System prompt length: %d chars", len(system))
-        logger.debug("User messages count: %d", len(local_messages))
-        for i, msg in enumerate(local_messages):
+        logger.debug("=== REQUEST KWARGS ===")
+        logger.debug("Model: %s | Max tokens: %s | Messages: %d", kwargs["model"], kwargs["max_tokens"], len(kwargs["messages"]))
+        logger.debug("System (first 200 chars): %s", kwargs["system"][:200])
+        for i, msg in enumerate(kwargs["messages"]):
             if isinstance(msg.get("content"), str):
-                logger.debug("Message %d (role=%s): %d chars", i, msg.get("role"), len(msg["content"]))
+                logger.debug("  Msg %d: role=%s, content length=%d", i, msg["role"], len(msg["content"]))
 
         while True:
-            logger.debug("=== REQUEST KWARGS ===")
-            logger.debug("Model: %s | Max tokens: %s | Messages: %d", kwargs["model"], kwargs["max_tokens"], len(kwargs["messages"]))
-            logger.debug("System (first 200 chars): %s", kwargs["system"][:200])
-            for i, msg in enumerate(kwargs["messages"]):
-                if isinstance(msg.get("content"), str):
-                    logger.debug("  Msg %d: role=%s, content length=%d", i, msg["role"], len(msg["content"]))
+            if use_streaming:
+                # Streaming mode — required for large max_tokens to avoid SDK timeout
+                with self._client.messages.stream(**kwargs) as stream:
+                    response = stream.get_final_message()
+            else:
+                response = self._client.messages.create(**kwargs)
 
-            response = self._client.messages.create(**kwargs)
             logger.debug("Claude response stop_reason=%s content_blocks=%d", response.stop_reason, len(response.content))
 
-            # Collect text blocks from this response turn
             tool_uses: list = []
             for block in response.content:
                 if hasattr(block, 'type'):
                     if block.type == "text":
                         accumulated_text.append(block.text)
                     elif block.type == "tool_use":
-                        # Client-side tool use (not web_search, which is server-side)
                         tool_uses.append(block)
-            
+
             if response.stop_reason in ("end_turn", "stop_sequence") or not tool_uses:
                 result = "\n".join(accumulated_text).strip()
                 if not result:
-                    logger.error("Claude returned empty response (stop_reason=%s, content_blocks=%d)", 
+                    logger.error("Claude returned empty response (stop_reason=%s, content_blocks=%d)",
                                 response.stop_reason, len(response.content))
                     raise RuntimeError("Claude API returned empty response. Check logs for details.")
-                # Done — return all accumulated text
                 return result
 
-            # Client-side tool_use loop (future extensibility — web_search never reaches here)
+            # Client-side tool_use loop (web_search never reaches here)
             local_messages.append({
                 "role": "assistant",
                 "content": response.content,
