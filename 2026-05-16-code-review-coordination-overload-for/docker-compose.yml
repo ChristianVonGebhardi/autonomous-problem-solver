@@ -1,0 +1,168 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: crc_postgres
+    environment:
+      POSTGRES_USER: reviewer
+      POSTGRES_PASSWORD: reviewer_pass
+      POSTGRES_DB: code_review_coordinator
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U reviewer -d code_review_coordinator"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: crc_redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  webhook:
+    build:
+      context: .
+      dockerfile: Dockerfile.webhook
+    container_name: crc_webhook
+    ports:
+      - "8080:8080"
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=reviewer
+      - POSTGRES_PASSWORD=reviewer_pass
+      - POSTGRES_DB=code_review_coordinator
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - WEBHOOK_SERVICE_PORT=8080
+      - ANALYSIS_SERVICE_PORT=8081
+      - ROUTING_SERVICE_PORT=8082
+      - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET:-dev_secret_key}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  analysis:
+    build:
+      context: .
+      dockerfile: Dockerfile.analysis
+    container_name: crc_analysis
+    ports:
+      - "8081:8081"
+    environment:
+      - ANALYSIS_SERVICE_PORT=8081
+      - ROUTING_SERVICE_URL=http://routing:8082
+      - WEBHOOK_SERVICE_URL=http://webhook:8080
+    depends_on:
+      - webhook
+
+  routing:
+    build:
+      context: .
+      dockerfile: Dockerfile.routing
+    container_name: crc_routing
+    ports:
+      - "8082:8082"
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=reviewer
+      - POSTGRES_PASSWORD=reviewer_pass
+      - POSTGRES_DB=code_review_coordinator
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - ROUTING_SERVICE_PORT=8082
+      - NOTIFICATION_SERVICE_PORT=8084
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  capacity:
+    build:
+      context: .
+      dockerfile: Dockerfile.capacity
+    container_name: crc_capacity
+    ports:
+      - "8083:8083"
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=reviewer
+      - POSTGRES_PASSWORD=reviewer_pass
+      - POSTGRES_DB=code_review_coordinator
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - CAPACITY_SERVICE_PORT=8083
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  notification:
+    build:
+      context: .
+      dockerfile: Dockerfile.notification
+    container_name: crc_notification
+    ports:
+      - "8084:8084"
+    environment:
+      - NOTIFICATION_SERVICE_PORT=8084
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL:-}
+    depends_on:
+      - webhook
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile.dashboard
+    container_name: crc_dashboard
+    ports:
+      - "8085:8085"
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=reviewer
+      - POSTGRES_PASSWORD=reviewer_pass
+      - POSTGRES_DB=code_review_coordinator
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - DASHBOARD_API_PORT=8085
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    container_name: crc_web
+    ports:
+      - "3000:80"
+    environment:
+      - REACT_APP_API_URL=http://localhost:8085
+    depends_on:
+      - dashboard
+
+volumes:
+  postgres_data:
+  redis_data:
