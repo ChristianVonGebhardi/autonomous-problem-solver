@@ -154,7 +154,7 @@ func (db *Database) GetProjectSpending(ctx context.Context, team, project string
 	query := `
 		SELECT COALESCE(SUM(cost), 0) as total
 		FROM cost_metrics
-		WHERE team = $1 AND project = $2 AND time >= $2
+		WHERE team = $1 AND project = $2 AND time >= $3
 	`
 
 	var total float64
