@@ -149,9 +149,12 @@ class ClaudeClient:
 
         while True:
             if use_streaming:
-                # Streaming mode — required for large max_tokens to avoid SDK timeout
+                logger.info("Starting streaming request (max_tokens=%d)...", max_tokens)
                 with self._client.messages.stream(**kwargs) as stream:
+                    for event in stream:
+                        pass  # let the stream progress
                     response = stream.get_final_message()
+                logger.info("Streaming complete. stop_reason=%s", response.stop_reason)
             else:
                 response = self._client.messages.create(**kwargs)
 
