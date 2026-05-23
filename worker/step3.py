@@ -33,6 +33,8 @@ class Step3Runner:
     - Parse the response: commit files, handle BLOCKER, or finalise with DONE.md
     """
 
+    MAX_AUTO_RESUMES = 5  # Maximum auto-resume cycles before requiring human review
+
     def __init__(
         self,
         github: GitHubClient,
@@ -158,15 +160,62 @@ class Step3Runner:
     def _handle_truncation(self) -> str:
         """
         Auto-resumes when Claude was truncated mid-response (stop_reason=max_tokens).
-        Adds cycle-resume label to the [CYCLE] issue so the worker picks it up
-        on the next poll — no human action required.
+        Tracks resume count in RESUME_COUNT file on the branch.
+        If MAX_AUTO_RESUMES is exceeded, opens a blocker instead.
         """
+        # Read current resume count
+        resume_count = 0
+        try:
+            count_str = self.github.read_file(f"{self.slug}/RESUME_COUNT", self.branch)
+            if count_str:
+                resume_count = int(count_str.strip())
+        except Exception:
+            resume_count = 0
+
+        resume_count += 1
+        logger.info("[%s] Auto-resume count: %d/%d", self.slug, resume_count, MAX_AUTO_RESUMES)
+
+        # Write updated count back to branch
+        try:
+            self.github.commit_file(
+                path=f"{self.slug}/RESUME_COUNT",
+                content=str(resume_count),
+                commit_message=f"chore: update resume count to {resume_count}",
+                branch=self.branch,
+            )
+        except Exception as e:
+            logger.warning("[%s] Failed to write RESUME_COUNT: %s", self.slug, e)
+
+        # Check if limit exceeded
+        if resume_count > MAX_AUTO_RESUMES:
+            logger.warning(
+                "[%s] Max auto-resumes (%d) exceeded — opening blocker for human review",
+                self.slug, MAX_AUTO_RESUMES,
+            )
+            return self._handle_blocker(BlockerInfo(
+                summary=f"Max auto-resume limit ({MAX_AUTO_RESUMES}) reached — human review required",
+                what_is_blocked=f"Implementation has been auto-resumed {resume_count} times due to "
+                            f"response truncation (stop_reason=max_tokens) but has not completed. "
+                            f"The MVP may require more files than can be generated in {MAX_AUTO_RESUMES} cycles.",
+                what_was_attempted=f"Claude was prompted {resume_count} times with all existing files as context. "
+                                f"Each run committed partial output before hitting the token limit.",
+                resolution_options=[
+                    f"Add label cycle-resume to [CYCLE] issue to continue for {MAX_AUTO_RESUMES} more cycles",
+                    "Review committed files to assess if MVP is already functionally complete",
+                    "Cancel this cycle if the scope is too large for automated implementation",
+                    f"Increase MAX_AUTO_RESUMES in worker/step3.py (currently {MAX_AUTO_RESUMES})",
+                ],
+                impact_if_unresolved="MVP remains incomplete — no DONE.md will be created.",
+            ))
+
+        # Add cycle-resume label to trigger next poll
         try:
             issues = self.github.get_open_issues_for_slug(self.slug)
             for issue in issues:
                 if issue.title.startswith(f"[CYCLE] {self.slug}"):
                     self.github.add_label_to_issue(issue, "cycle-resume")
-                    logger.info("[%s] Added cycle-resume to Issue #%d for auto-resume", self.slug, issue.number)
+                    logger.info("[%s] Added cycle-resume to Issue #%d for auto-resume (%d/%d)",
+                            self.slug, issue.number, resume_count, MAX_AUTO_RESUMES)
                     return "resuming"
         except Exception as e:
             logger.error("[%s] Failed to add cycle-resume label: %s", self.slug, e)
@@ -194,7 +243,7 @@ class Step3Runner:
         CANCELLED.md, README.md). Returns a dict of {relative_path: content}.
         """
         EXCLUDED_FILES = {
-            "PROBLEM.md", "ARCHITECTURE.md", "DONE.md", "CANCELLED.md", "README.md"
+            "PROBLEM.md", "ARCHITECTURE.md", "DONE.md", "CANCELLED.md", "README.md", "RESUME_COUNT"
         }
         result = {}
         try:
