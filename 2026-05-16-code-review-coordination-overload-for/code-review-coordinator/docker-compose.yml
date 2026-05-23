@@ -1,0 +1,166 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: crcoordinator
+      POSTGRES_USER: coordinator
+      POSTGRES_PASSWORD: coordinator_secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U coordinator -d crcoordinator"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  nats:
+    image: nats:2.10-alpine
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+    command: -js -m 8222
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8222/healthz"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  ingestion:
+    build:
+      context: ./services/ingestion
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - NATS_URL=nats://nats:4222
+      - REDIS_URL=redis:6379
+      - POSTGRES_DSN=postgres://coordinator:coordinator_secret@postgres:5432/crcoordinator?sslmode=disable
+      - WEBHOOK_SECRET=dev_webhook_secret_123
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+
+  analysis:
+    build:
+      context: ./services/analysis
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      - NATS_URL=nats://nats:4222
+      - POSTGRES_DSN=postgresql://coordinator:coordinator_secret@postgres:5432/crcoordinator
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+
+  routing:
+    build:
+      context: ./services/routing
+      dockerfile: Dockerfile
+    ports:
+      - "8082:8082"
+    environment:
+      - NATS_URL=nats://nats:4222
+      - REDIS_URL=redis:6379
+      - POSTGRES_DSN=postgres://coordinator:coordinator_secret@postgres:5432/crcoordinator?sslmode=disable
+      - ANALYSIS_SERVICE_URL=http://analysis:8001
+      - NOTIFICATION_SERVICE_URL=http://notification:8083
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+
+  capacity:
+    build:
+      context: ./services/capacity
+      dockerfile: Dockerfile
+    ports:
+      - "8084:8084"
+    environment:
+      - NATS_URL=nats://nats:4222
+      - REDIS_URL=redis:6379
+      - POSTGRES_DSN=postgres://coordinator:coordinator_secret@postgres:5432/crcoordinator?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+
+  notification:
+    build:
+      context: ./services/notification
+      dockerfile: Dockerfile
+    ports:
+      - "8083:8083"
+    environment:
+      - NATS_URL=nats://nats:4222
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL:-}
+      - POSTGRES_DSN=postgres://coordinator:coordinator_secret@postgres:5432/crcoordinator?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+
+  api:
+    build:
+      context: ./services/api
+      dockerfile: Dockerfile
+    ports:
+      - "8085:8085"
+    environment:
+      - REDIS_URL=redis:6379
+      - POSTGRES_DSN=postgres://coordinator:coordinator_secret@postgres:5432/crcoordinator?sslmode=disable
+      - NATS_URL=nats://nats:4222
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  dashboard:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:8085
+    depends_on:
+      - api
+
+volumes:
+  postgres_data:
+  redis_data:
