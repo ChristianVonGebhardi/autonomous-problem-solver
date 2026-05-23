@@ -98,6 +98,7 @@ func (s *PostgresStore) Migrate() error {
 		`CREATE INDEX IF NOT EXISTS idx_prs_assigned ON pull_requests(assigned_reviewer)`,
 		`CREATE INDEX IF NOT EXISTS idx_prs_created ON pull_requests(created_at)`,
 		`CREATE INDEX IF NOT EXISTS idx_review_events_pr ON review_events(pr_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_review_events_created ON review_events(created_at)`,
 	}
 
 	for _, q := range queries {
@@ -108,11 +109,11 @@ func (s *PostgresStore) Migrate() error {
 	return nil
 }
 
-// PR Operations
+// ── PR Operations ──────────────────────────────────────────────────────────────
 
 func (s *PostgresStore) UpsertPR(pr *models.PullRequest) error {
 	query := `
-		INSERT INTO pull_requests (repo_owner, repo_name, pr_number, title, author, status, 
+		INSERT INTO pull_requests (repo_owner, repo_name, pr_number, title, author, status,
 			lines_added, lines_deleted, files_changed, complexity_score, estimated_minutes, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
 		ON CONFLICT (repo_owner, repo_name, pr_number)
@@ -225,7 +226,6 @@ func (s *PostgresStore) ListPRs(status string, limit int) ([]*models.PullRequest
 }
 
 func (s *PostgresStore) SavePRFiles(prID int64, files []models.PRFile) error {
-	// Delete existing files for this PR
 	if _, err := s.db.Exec(`DELETE FROM pr_files WHERE pr_id = $1`, prID); err != nil {
 		return err
 	}
@@ -244,7 +244,7 @@ func (s *PostgresStore) SavePRFiles(prID int64, files []models.PRFile) error {
 
 func (s *PostgresStore) GetPRFiles(prID int64) ([]models.PRFile, error) {
 	rows, err := s.db.Query(
-		`SELECT id, pr_id, filename, status, additions, deletions, changes FROM pr_files WHERE pr_id = $1`,
+		`SELECT id, pr_id, filename, COALESCE(status,''), additions, deletions, changes FROM pr_files WHERE pr_id = $1`,
 		prID,
 	)
 	if err != nil {
@@ -263,7 +263,7 @@ func (s *PostgresStore) GetPRFiles(prID int64) ([]models.PRFile, error) {
 	return files, rows.Err()
 }
 
-// Reviewer Operations
+// ── Reviewer Operations ────────────────────────────────────────────────────────
 
 func (s *PostgresStore) UpsertReviewer(r *models.Reviewer) error {
 	_, err := s.db.Exec(`
@@ -324,7 +324,7 @@ func (s *PostgresStore) IncrementReviewerLoad(username string) error {
 
 func (s *PostgresStore) DecrementReviewerLoad(username string) error {
 	_, err := s.db.Exec(`
-		UPDATE reviewers SET 
+		UPDATE reviewers SET
 			current_load = GREATEST(0, current_load - 1),
 			total_reviews = total_reviews + 1,
 			last_active_at = NOW(),
@@ -337,7 +337,7 @@ func (s *PostgresStore) GetAvailableReviewers() ([]*models.Reviewer, error) {
 	rows, err := s.db.Query(`
 		SELECT username, COALESCE(email,''), COALESCE(full_name,''), current_load, max_load,
 		avg_review_time, total_reviews, is_available, last_active_at, created_at, updated_at
-		FROM reviewers 
+		FROM reviewers
 		WHERE is_available = true AND current_load < max_load
 		ORDER BY current_load ASC, avg_review_time ASC`)
 	if err != nil {
@@ -390,41 +390,82 @@ func (s *PostgresStore) UpsertExpertise(username, pattern string, score float64)
 	return err
 }
 
-// Analytics Operations
+// ── Events / Audit Log ─────────────────────────────────────────────────────────
+
+func (s *PostgresStore) LogEvent(prID int64, reviewer, eventType, details string) error {
+	_, err := s.db.Exec(
+		`INSERT INTO review_events (pr_id, reviewer, event_type, details, created_at) VALUES ($1, $2, $3, $4, NOW())`,
+		prID, reviewer, eventType, details,
+	)
+	return err
+}
+
+func (s *PostgresStore) GetPREvents(prID int64) ([]models.ReviewEvent, error) {
+	rows, err := s.db.Query(`
+		SELECT id, pr_id, COALESCE(reviewer,''), event_type, COALESCE(details,''), created_at
+		FROM review_events WHERE pr_id = $1 ORDER BY created_at DESC`, prID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var events []models.ReviewEvent
+	for rows.Next() {
+		var e models.ReviewEvent
+		if err := rows.Scan(&e.ID, &e.PRID, &e.Reviewer, &e.EventType, &e.Details, &e.CreatedAt); err != nil {
+			return nil, err
+		}
+		events = append(events, e)
+	}
+	return events, rows.Err()
+}
+
+func (s *PostgresStore) GetRecentEvents(limit int) ([]models.ReviewEvent, error) {
+	rows, err := s.db.Query(fmt.Sprintf(`
+		SELECT id, pr_id, COALESCE(reviewer,''), event_type, COALESCE(details,''), created_at
+		FROM review_events ORDER BY created_at DESC LIMIT %d`, limit))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var events []models.ReviewEvent
+	for rows.Next() {
+		var e models.ReviewEvent
+		if err := rows.Scan(&e.ID, &e.PRID, &e.Reviewer, &e.EventType, &e.Details, &e.CreatedAt); err != nil {
+			return nil, err
+		}
+		events = append(events, e)
+	}
+	return events, rows.Err()
+}
+
+// ── Analytics ─────────────────────────────────────────────────────────────────
 
 func (s *PostgresStore) GetMetricsOverview() (*models.MetricsOverview, error) {
 	m := &models.MetricsOverview{}
 
-	// Active PRs
 	s.db.QueryRow(`SELECT COUNT(*) FROM pull_requests WHERE status IN ('open','assigned','in_review')`).Scan(&m.ActivePRs)
-
-	// PRs today
 	s.db.QueryRow(`SELECT COUNT(*) FROM pull_requests WHERE created_at >= NOW() - INTERVAL '24 hours'`).Scan(&m.PRsToday)
-
-	// PRs completed today
 	s.db.QueryRow(`SELECT COUNT(*) FROM pull_requests WHERE completed_at >= NOW() - INTERVAL '24 hours'`).Scan(&m.PRsCompletedToday)
 
-	// Avg time to assign (minutes)
 	s.db.QueryRow(`
 		SELECT COALESCE(AVG(EXTRACT(EPOCH FROM (assigned_at - created_at))/60), 0)
 		FROM pull_requests WHERE assigned_at IS NOT NULL AND created_at >= NOW() - INTERVAL '7 days'`,
 	).Scan(&m.AvgTimeToAssign)
 
-	// Avg time to review start (minutes)
 	s.db.QueryRow(`
 		SELECT COALESCE(AVG(EXTRACT(EPOCH FROM (review_started_at - assigned_at))/60), 0)
 		FROM pull_requests WHERE review_started_at IS NOT NULL AND created_at >= NOW() - INTERVAL '7 days'`,
 	).Scan(&m.AvgTimeToReview)
 
-	// Avg time to merge (hours)
 	s.db.QueryRow(`
 		SELECT COALESCE(AVG(EXTRACT(EPOCH FROM (completed_at - created_at))/3600), 0)
 		FROM pull_requests WHERE completed_at IS NOT NULL AND created_at >= NOW() - INTERVAL '7 days'`,
 	).Scan(&m.AvgTimeToMerge)
 
-	// Bottleneck reviewers (those at max load)
 	rows, err := s.db.Query(`
-		SELECT username FROM reviewers 
+		SELECT username FROM reviewers
 		WHERE current_load >= max_load AND is_available = true
 		ORDER BY current_load DESC LIMIT 5`)
 	if err == nil {
@@ -437,19 +478,23 @@ func (s *PostgresStore) GetMetricsOverview() (*models.MetricsOverview, error) {
 		}
 	}
 
+	if m.BottleneckReviewers == nil {
+		m.BottleneckReviewers = []string{}
+	}
+
 	return m, nil
 }
 
 func (s *PostgresStore) GetReviewerStats() ([]models.ReviewerStats, error) {
 	rows, err := s.db.Query(`
-		SELECT 
+		SELECT
 			r.username,
 			r.current_load,
 			r.max_load,
 			r.avg_review_time,
 			COALESCE(
-				(SELECT COUNT(*) FROM pull_requests p 
-				WHERE p.assigned_reviewer = r.username 
+				(SELECT COUNT(*) FROM pull_requests p
+				WHERE p.assigned_reviewer = r.username
 				AND p.completed_at >= NOW() - INTERVAL '24 hours'), 0
 			) as completed_today
 		FROM reviewers r
@@ -461,26 +506,18 @@ func (s *PostgresStore) GetReviewerStats() ([]models.ReviewerStats, error) {
 
 	var stats []models.ReviewerStats
 	for rows.Next() {
-		var s models.ReviewerStats
+		var st models.ReviewerStats
 		var maxLoad int
-		if err := rows.Scan(&s.Username, &s.ActiveReviews, &maxLoad, &s.AvgReviewTime, &s.CompletedToday); err != nil {
+		if err := rows.Scan(&st.Username, &st.ActiveReviews, &maxLoad, &st.AvgReviewTime, &st.CompletedToday); err != nil {
 			return nil, err
 		}
 		if maxLoad > 0 {
-			s.UtilizationRate = float64(s.ActiveReviews) / float64(maxLoad)
+			st.UtilizationRate = float64(st.ActiveReviews) / float64(maxLoad)
 		}
-		s.IsBottleneck = s.ActiveReviews >= maxLoad
-		stats = append(stats, s)
+		st.IsBottleneck = st.ActiveReviews >= maxLoad
+		stats = append(stats, st)
 	}
 	return stats, rows.Err()
-}
-
-func (s *PostgresStore) LogEvent(prID int64, reviewer, eventType, details string) error {
-	_, err := s.db.Exec(
-		`INSERT INTO review_events (pr_id, reviewer, event_type, details, created_at) VALUES ($1, $2, $3, $4, NOW())`,
-		prID, reviewer, eventType, details,
-	)
-	return err
 }
 
 func (s *PostgresStore) Close() error {
