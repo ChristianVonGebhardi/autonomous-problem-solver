@@ -78,7 +78,7 @@ def run_steps_1_and_2() -> None:
 
     # --- Step 1: Brainstorm ---
     logger.info("Running Step 1: Problem Brainstorm (web search enabled)...")
-    problem_md = claude.complete(
+    problem_md, _ = claude.complete(
         system=STEP1_SYSTEM,
         messages=[{"role": "user", "content": step1_user_prompt(already_explored)}],
         use_web_search=True,
@@ -121,7 +121,7 @@ def run_steps_1_and_2() -> None:
     time.sleep(120)
 
     logger.info("Running Step 2: Architecture Design...")
-    arch_raw = claude.complete(
+    arch_raw, _ = claude.complete(
         system=STEP2_SYSTEM,
         messages=[{"role": "user", "content": step2_user_prompt(problem_md)}],
         use_web_search=False,

@@ -78,6 +78,7 @@ class Step3Output:
     mvp_summary: str = ""
     blocker: Optional["BlockerInfo"] = None
     parse_warnings: list[str] = field(default_factory=list)
+    stop_reason: str = "end_turn"
 
 
 @dataclass

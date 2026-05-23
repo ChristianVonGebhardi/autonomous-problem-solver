@@ -96,61 +96,81 @@ class Step3Runner:
     # ------------------------------------------------------------------
 
     def _execute_and_handle(
-        self,
-        prompt: str,
-        problem_md: str,
-        architecture_md: str,
-        cancelled_md: Optional[str],
-    ) -> str:
-        """
-        Calls Claude, parses the response, and dispatches to the appropriate handler.
-        """
-        logger.info("[%s] Calling Claude for Step 3...", self.slug)
-        try:
-            raw_response = self.claude.complete(
-                system=STEP3_SYSTEM,
-                messages=[{"role": "user", "content": prompt}],
-                use_web_search=False,
-                use_streaming=True,
-                max_tokens=32768,  # increased from 16384 — streaming supports this
+            self,
+            prompt: str,
+            problem_md: str,
+            architecture_md: str,
+            cancelled_md: Optional[str],
+        ) -> str:
+            logger.info("[%s] Calling Claude for Step 3...", self.slug)
+            try:
+                raw_response, stop_reason = self.claude.complete(
+                    system=STEP3_SYSTEM,
+                    messages=[{"role": "user", "content": prompt}],
+                    use_web_search=False,
+                    use_streaming=True,
+                    max_tokens=32768,
+                )
+            except Exception as e:
+                logger.error("[%s] Claude API call failed: %s", self.slug, e)
+                return "error"
+
+            logger.info("[%s] Claude responded (%d chars, stop_reason=%s)", self.slug, len(raw_response), stop_reason)
+            parsed = parse_step3_output(raw_response)
+            parsed.stop_reason = stop_reason
+
+            # Commit any files Claude emitted, regardless of terminal state
+            if parsed.files:
+                logger.info("[%s] Committing %d file(s)...", self.slug, len(parsed.files))
+                self._commit_src_files(parsed.files)
+
+            if parsed.blocker:
+                return self._handle_blocker(parsed.blocker)
+
+            if parsed.mvp_complete:
+                return self._handle_done(parsed.mvp_summary)
+
+            # Check if truncation caused the missing terminal block
+            if stop_reason == "max_tokens":
+                logger.info("[%s] Response truncated — auto-scheduling resume", self.slug)
+                return self._handle_truncation()
+
+            # Truly ambiguous — treat as blocker
+            logger.warning(
+                "[%s] Claude response had neither <<<MVP_COMPLETE>>> nor <<<BLOCKER>>>. "
+                "This may indicate a prompt compliance issue. Treating as blocker.",
+                self.slug,
             )
+            return self._handle_blocker(BlockerInfo(
+                summary="Agent response was ambiguous — neither MVP_COMPLETE nor BLOCKER emitted",
+                what_is_blocked="The Step 3 Claude response did not include a terminal block. "
+                                "Implementation may be partially complete.",
+                what_was_attempted="Claude was prompted with the full PROBLEM.md and ARCHITECTURE.md. "
+                                "Files may have been committed if any <<<FILE>>> blocks were present.",
+                resolution_options=[
+                    "Review committed files in src/ to assess progress, then add label cycle-resume to [CYCLE] issue to retry",
+                    "Inspect the raw response in Railway logs for clues",
+                    "Cancel this cycle if the partial output is unusable",
+                ],
+                impact_if_unresolved="MVP is incomplete — no DONE.md will be created.",
+            ))
+
+    def _handle_truncation(self) -> str:
+        """
+        Auto-resumes when Claude was truncated mid-response (stop_reason=max_tokens).
+        Adds cycle-resume label to the [CYCLE] issue so the worker picks it up
+        on the next poll — no human action required.
+        """
+        try:
+            issues = self.github.get_open_issues_for_slug(self.slug)
+            for issue in issues:
+                if issue.title.startswith(f"[CYCLE] {self.slug}"):
+                    self.github.add_label_to_issue(issue, "cycle-resume")
+                    logger.info("[%s] Added cycle-resume to Issue #%d for auto-resume", self.slug, issue.number)
+                    return "resuming"
         except Exception as e:
-            logger.error("[%s] Claude API call failed: %s", self.slug, e)
-            return "error"
-
-        logger.info("[%s] Claude responded (%d chars)", self.slug, len(raw_response))
-        parsed = parse_step3_output(raw_response)
-
-        # Commit any files Claude emitted, regardless of terminal state
-        if parsed.files:
-            logger.info("[%s] Committing %d file(s)...", self.slug, len(parsed.files))
-            self._commit_src_files(parsed.files)
-
-        if parsed.blocker:
-            return self._handle_blocker(parsed.blocker)
-
-        if parsed.mvp_complete:
-            return self._handle_done(parsed.mvp_summary)
-
-        # Claude emitted neither BLOCKER nor MVP_COMPLETE — unexpected
-        logger.warning(
-            "[%s] Claude response had neither <<<MVP_COMPLETE>>> nor <<<BLOCKER>>>. "
-            "This may indicate a prompt compliance issue. Treating as blocker.",
-            self.slug,
-        )
-        return self._handle_blocker(BlockerInfo(
-            summary="Agent response was ambiguous — neither MVP_COMPLETE nor BLOCKER emitted",
-            what_is_blocked="The Step 3 Claude response did not include a terminal block. "
-                            "Implementation may be partially complete.",
-            what_was_attempted="Claude was prompted with the full PROBLEM.md and ARCHITECTURE.md. "
-                               "Files may have been committed if any <<<FILE>>> blocks were present.",
-            resolution_options=[
-                "Review committed files in src/ to assess progress, then reopen this Issue with label blocker-resolved to retry",
-                "Inspect the raw response in Railway logs for clues",
-                "Cancel this cycle if the partial output is unusable",
-            ],
-            impact_if_unresolved="MVP is incomplete — no DONE.md will be created.",
-        ))
+            logger.error("[%s] Failed to add cycle-resume label: %s", self.slug, e)
+        return "error"
 
     # ------------------------------------------------------------------
     # File operations

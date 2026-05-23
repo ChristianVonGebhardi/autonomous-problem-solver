@@ -32,66 +32,64 @@ class ClaudeClient:
         self._client = anthropic.Anthropic(api_key=api_key)
 
     def complete(
-        self,
-        system: str,
-        messages: list[dict],
-        use_web_search: bool = False,
-        use_streaming: bool = False,
-        max_tokens: int = MAX_TOKENS,
-    ) -> str:
-        """
-        Calls the Claude API and returns the final assistant text.
-        On persistent rate limits, automatically reduces prompt size and retries.
-        use_streaming=True is required for large max_tokens values (>~8192) to avoid
-        HTTP timeout errors from the SDK.
-        """
-        tools = []
-        if use_web_search:
-            tools = [{"type": "web_search_20250305", "name": "web_search"}]
+            self,
+            system: str,
+            messages: list[dict],
+            use_web_search: bool = False,
+            use_streaming: bool = False,
+            max_tokens: int = MAX_TOKENS,
+        ) -> tuple[str, str]:  # (text, stop_reason)
+            """
+            Returns (response_text, stop_reason).
+            stop_reason is one of: 'end_turn', 'stop_sequence', 'max_tokens', 'tool_use'
+            """
+            tools = []
+            if use_web_search:
+                tools = [{"type": "web_search_20250305", "name": "web_search"}]
 
-        for attempt in range(MAX_RETRIES):
-            try:
-                return self._run_completion(
-                    system=system,
-                    messages=messages,
-                    tools=tools,
-                    max_tokens=max_tokens,
-                    use_streaming=use_streaming,
-                )
-            except anthropic.RateLimitError as e:
-                wait = RETRY_BACKOFF[min(attempt, len(RETRY_BACKOFF) - 1)]
-                if attempt == MAX_RETRIES - 1:
-                    logger.warning("Rate limit persists after %d retries. Reducing prompt size...", MAX_RETRIES)
-                    messages_reduced = self._reduce_prompt_size(messages)
-                    if messages_reduced != messages:
-                        logger.warning("Retrying with reduced prompt size after 60s wait...")
-                        time.sleep(60)
-                        try:
-                            return self._run_completion(
-                                system=system,
-                                messages=messages_reduced,
-                                tools=tools,
-                                max_tokens=max_tokens,
-                                use_streaming=use_streaming,
-                            )
-                        except Exception as e2:
-                            logger.error("Reduced prompt retry failed: %s", e2)
-                            raise
-                logger.warning("Rate limit hit (attempt %d/%d). Waiting %ds. %s", attempt + 1, MAX_RETRIES, wait, e)
-                time.sleep(wait)
-            except anthropic.APIStatusError as e:
-                if e.status_code >= 500:
+            for attempt in range(MAX_RETRIES):
+                try:
+                    return self._run_completion(
+                        system=system,
+                        messages=messages,
+                        tools=tools,
+                        max_tokens=max_tokens,
+                        use_streaming=use_streaming,
+                    )
+                except anthropic.RateLimitError as e:
                     wait = RETRY_BACKOFF[min(attempt, len(RETRY_BACKOFF) - 1)]
-                    logger.warning("Server error %d (attempt %d/%d). Waiting %ds.", e.status_code, attempt + 1, MAX_RETRIES, wait)
+                    if attempt == MAX_RETRIES - 1:
+                        logger.warning("Rate limit persists after %d retries. Reducing prompt size...", MAX_RETRIES)
+                        messages_reduced = self._reduce_prompt_size(messages)
+                        if messages_reduced != messages:
+                            logger.warning("Retrying with reduced prompt size after 60s wait...")
+                            time.sleep(60)
+                            try:
+                                return self._run_completion(
+                                    system=system,
+                                    messages=messages_reduced,
+                                    tools=tools,
+                                    max_tokens=max_tokens,
+                                    use_streaming=use_streaming,
+                                )
+                            except Exception as e2:
+                                logger.error("Reduced prompt retry failed: %s", e2)
+                                raise
+                    logger.warning("Rate limit hit (attempt %d/%d). Waiting %ds. %s", attempt + 1, MAX_RETRIES, wait, e)
                     time.sleep(wait)
-                else:
-                    raise
-            except anthropic.APIConnectionError as e:
-                wait = RETRY_BACKOFF[min(attempt, len(RETRY_BACKOFF) - 1)]
-                logger.warning("Connection error (attempt %d/%d). Waiting %ds. %s", attempt + 1, MAX_RETRIES, wait, e)
-                time.sleep(wait)
+                except anthropic.APIStatusError as e:
+                    if e.status_code >= 500:
+                        wait = RETRY_BACKOFF[min(attempt, len(RETRY_BACKOFF) - 1)]
+                        logger.warning("Server error %d (attempt %d/%d). Waiting %ds.", e.status_code, attempt + 1, MAX_RETRIES, wait)
+                        time.sleep(wait)
+                    else:
+                        raise
+                except anthropic.APIConnectionError as e:
+                    wait = RETRY_BACKOFF[min(attempt, len(RETRY_BACKOFF) - 1)]
+                    logger.warning("Connection error (attempt %d/%d). Waiting %ds. %s", attempt + 1, MAX_RETRIES, wait, e)
+                    time.sleep(wait)
 
-        raise RuntimeError(f"Claude API failed after {MAX_RETRIES} attempts.")
+            raise RuntimeError(f"Claude API failed after {MAX_RETRIES} attempts.")
 
     def _reduce_prompt_size(self, messages: list[dict]) -> list[dict]:
         """
@@ -180,7 +178,7 @@ class ClaudeClient:
                         "Files committed so far are partial. Consider increasing max_tokens "
                         "or resuming this cycle to continue implementation."
                     )
-                return result
+                return result, response.stop_reason
 
             # Client-side tool_use loop (web_search never reaches here)
             local_messages.append({
