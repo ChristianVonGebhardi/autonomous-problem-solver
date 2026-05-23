@@ -1,0 +1,101 @@
+version: "1.0"
+
+policies:
+  - id: platform-daily-limit
+    name: "Platform Team Daily Spend Limit"
+    description: "Alert when platform team exceeds $50/day across all projects"
+    team: platform
+    project: "*"
+    enabled: true
+    cel_expression: "team_spend > threshold"
+    threshold_amount: 50.0
+    time_window: "24h"
+    actions:
+      - type: notify
+        severity: warn
+        parameters:
+          channel: "#platform-alerts"
+          message: "Daily spend limit exceeded"
+    metadata:
+      owner: "platform-team"
+      runbook: "https://wiki.example.com/runbooks/platform-spending"
+
+  - id: data-hourly-runaway-guard
+    name: "Data Team Hourly Runaway Guard"
+    description: "Halt resources when data team hourly rate exceeds $10/hr (prevents runaway loops)"
+    team: data
+    project: "*"
+    enabled: true
+    cel_expression: "hourly_rate > 10.0"
+    threshold_amount: 10.0
+    time_window: "1h"
+    actions:
+      - type: notify
+        severity: warn
+        parameters:
+          channel: "#data-alerts"
+      - type: halt
+        severity: critical
+        parameters:
+          approval_required: "false"
+    metadata:
+      owner: "data-team"
+
+  - id: data-daily-limit
+    name: "Data Team Daily Spend Limit"
+    description: "Alert and halt when data/ml-training exceeds $100/day"
+    team: data
+    project: ml-training
+    enabled: true
+    cel_expression: "team_spend > threshold"
+    threshold_amount: 100.0
+    time_window: "24h"
+    actions:
+      - type: notify
+        severity: warn
+        parameters:
+          channel: "#data-alerts"
+      - type: halt
+        severity: critical
+    metadata:
+      owner: "data-team"
+      category: "ml-training"
+
+  - id: org-monthly-budget
+    name: "Organization Monthly Budget Cap"
+    description: "Organization-wide monthly spend cap at $10,000"
+    team: "*"
+    project: "*"
+    enabled: true
+    cel_expression: "team_spend > threshold"
+    threshold_amount: 10000.0
+    time_window: "30d"
+    actions:
+      - type: notify
+        severity: critical
+        parameters:
+          channel: "#finops-alerts"
+          escalate_to: "engineering-director"
+    metadata:
+      owner: "finops"
+
+  - id: gpu-instance-hourly-limit
+    name: "GPU Training Instance Hourly Limit"
+    description: "Terminate GPU instances spending more than $50/hr"
+    team: data
+    project: ml-training
+    enabled: true
+    cel_expression: "hourly_rate > 50.0"
+    threshold_amount: 50.0
+    time_window: "1h"
+    actions:
+      - type: notify
+        severity: critical
+      - type: terminate
+        severity: critical
+        parameters:
+          approval_required: "true"
+          notify_managers: "true"
+    metadata:
+      owner: "data-team"
+      risk: "high"
