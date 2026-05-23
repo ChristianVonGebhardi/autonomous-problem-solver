@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -21,10 +22,10 @@ import (
 )
 
 type WebhookHandler struct {
-	cfg     *config.Config
-	pg      *store.PostgresStore
-	redis   *store.RedisStore
-	logger  *log.Logger
+	cfg    *config.Config
+	pg     *store.PostgresStore
+	redis  *store.RedisStore
+	logger *log.Logger
 }
 
 // GitHub webhook event types
@@ -32,18 +33,18 @@ type GitHubPREvent struct {
 	Action      string `json:"action"`
 	Number      int    `json:"number"`
 	PullRequest struct {
-		Number int    `json:"number"`
-		Title  string `json:"title"`
-		State  string `json:"state"`
-		User   struct {
+		Number       int    `json:"number"`
+		Title        string `json:"title"`
+		State        string `json:"state"`
+		User         struct {
 			Login string `json:"login"`
 		} `json:"user"`
-		Additions int `json:"additions"`
-		Deletions int `json:"deletions"`
+		Additions    int `json:"additions"`
+		Deletions    int `json:"deletions"`
 		ChangedFiles int `json:"changed_files"`
-		Head struct {
-			SHA  string `json:"sha"`
-			Ref  string `json:"ref"`
+		Head         struct {
+			SHA string `json:"sha"`
+			Ref string `json:"ref"`
 		} `json:"head"`
 		HTMLURL string `json:"html_url"`
 	} `json:"pull_request"`
@@ -99,9 +100,13 @@ func main() {
 
 	r.Get("/health", h.healthHandler)
 	r.Post("/webhooks/github", h.githubWebhookHandler)
-	r.Post("/api/prs", h.createPRHandler)           // Manual PR creation for testing
+
+	// REST API for manual testing and service-to-service calls
+	r.Post("/api/prs", h.createPRHandler)
 	r.Get("/api/prs", h.listPRsHandler)
+	r.Get("/api/prs/{id}", h.getPRHandler)
 	r.Put("/api/prs/{id}/status", h.updatePRStatusHandler)
+	r.Patch("/api/prs/{id}/analysis", h.updatePRAnalysisHandler) // Called by Python analysis service
 
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%d", cfg.WebhookServicePort),
@@ -196,17 +201,12 @@ func (h *WebhookHandler) handlePREvent(w http.ResponseWriter, r *http.Request, b
 
 	h.logger.Printf("Stored PR #%d from %s/%s (action: %s)", pr.PRNumber, pr.RepoOwner, pr.RepoName, event.Action)
 
-	// For new PRs, enqueue for analysis and routing
 	if event.Action == "opened" || event.Action == "reopened" {
 		ctx := r.Context()
-		// Priority = lines changed (more lines = higher priority to get reviewed quickly)
 		priority := float64(pr.LinesAdded + pr.LinesDeleted)
 		if err := h.redis.EnqueuePR(ctx, pr.ID, priority); err != nil {
 			h.logger.Printf("Failed to enqueue PR: %v", err)
 		}
-		h.logger.Printf("Enqueued PR %d for analysis", pr.ID)
-
-		// Trigger analysis via internal HTTP call (non-blocking)
 		go h.triggerAnalysis(pr)
 	}
 
@@ -242,33 +242,13 @@ func (h *WebhookHandler) triggerAnalysis(pr *models.PullRequest) {
 	}
 
 	data, _ := json.Marshal(req)
-	resp, err := http.Post(analysisURL, "application/json", 
-		io.NopCloser(
-			func() io.Reader {
-				return &jsonReader{data: data}
-			}(),
-		),
-	)
+	resp, err := http.Post(analysisURL, "application/json", bytes.NewReader(data))
 	if err != nil {
 		h.logger.Printf("Failed to trigger analysis for PR %d: %v", pr.ID, err)
 		return
 	}
 	defer resp.Body.Close()
 	h.logger.Printf("Analysis triggered for PR %d, response: %d", pr.ID, resp.StatusCode)
-}
-
-type jsonReader struct {
-	data []byte
-	pos  int
-}
-
-func (jr *jsonReader) Read(p []byte) (n int, err error) {
-	if jr.pos >= len(jr.data) {
-		return 0, io.EOF
-	}
-	n = copy(p, jr.data[jr.pos:])
-	jr.pos += n
-	return n, nil
 }
 
 func (h *WebhookHandler) createPRHandler(w http.ResponseWriter, r *http.Request) {
@@ -281,6 +261,16 @@ func (h *WebhookHandler) createPRHandler(w http.ResponseWriter, r *http.Request)
 	if pr.Status == "" {
 		pr.Status = "open"
 	}
+	if pr.RepoOwner == "" {
+		pr.RepoOwner = "demo"
+	}
+	if pr.RepoName == "" {
+		pr.RepoName = "repo"
+	}
+	if pr.PRNumber == 0 {
+		// Auto-assign a PR number based on timestamp
+		pr.PRNumber = int(time.Now().UnixNano() % 100000)
+	}
 
 	if err := h.pg.UpsertPR(&pr); err != nil {
 		h.logger.Printf("Failed to create PR: %v", err)
@@ -288,13 +278,30 @@ func (h *WebhookHandler) createPRHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Enqueue for routing
 	ctx := r.Context()
 	priority := float64(pr.LinesAdded + pr.LinesDeleted + pr.FilesChanged*10)
 	h.redis.EnqueuePR(ctx, pr.ID, priority)
 
+	// Trigger analysis asynchronously
+	go h.triggerAnalysis(&pr)
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(pr)
+}
+
+func (h *WebhookHandler) getPRHandler(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	var id int64
+	fmt.Sscanf(idStr, "%d", &id)
+
+	pr, err := h.pg.GetPR(id)
+	if err != nil {
+		http.Error(w, "PR not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(pr)
 }
 
@@ -330,6 +337,33 @@ func (h *WebhookHandler) updatePRStatusHandler(w http.ResponseWriter, r *http.Re
 		http.Error(w, "Database error", http.StatusInternalServerError)
 		return
 	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "updated"})
+}
+
+// updatePRAnalysisHandler is called by the Python analysis service
+func (h *WebhookHandler) updatePRAnalysisHandler(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	var id int64
+	fmt.Sscanf(idStr, "%d", &id)
+
+	var req struct {
+		ComplexityScore  float64 `json:"complexity_score"`
+		EstimatedMinutes int     `json:"estimated_minutes"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.pg.UpdatePRAnalysis(id, req.ComplexityScore, req.EstimatedMinutes); err != nil {
+		h.logger.Printf("Failed to update PR analysis: %v", err)
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+
+	h.logger.Printf("Updated analysis for PR %d: complexity=%.3f, est=%dmin", id, req.ComplexityScore, req.EstimatedMinutes)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "updated"})
