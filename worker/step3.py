@@ -112,7 +112,7 @@ class Step3Runner:
                 messages=[{"role": "user", "content": prompt}],
                 use_web_search=False,
                 use_streaming=True,
-                max_tokens=16384,
+                max_tokens=32768,  # increased from 16384 — streaming supports this
             )
         except Exception as e:
             logger.error("[%s] Claude API call failed: %s", self.slug, e)

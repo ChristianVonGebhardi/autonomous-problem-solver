@@ -174,6 +174,12 @@ class ClaudeClient:
                     logger.error("Claude returned empty response (stop_reason=%s, content_blocks=%d)",
                                 response.stop_reason, len(response.content))
                     raise RuntimeError("Claude API returned empty response. Check logs for details.")
+                if response.stop_reason == "max_tokens":
+                    logger.warning(
+                        "Claude response was truncated (stop_reason=max_tokens). "
+                        "Files committed so far are partial. Consider increasing max_tokens "
+                        "or resuming this cycle to continue implementation."
+                    )
                 return result
 
             # Client-side tool_use loop (web_search never reaches here)
