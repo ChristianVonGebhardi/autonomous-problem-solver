@@ -50,6 +50,11 @@ Output format — respond with EXACTLY this Markdown structure, nothing else bef
 **Estimated impact if solved:** <1-2 sentences>
 
 Do not include any preamble, explanation, or commentary outside this structure.
+
+CRITICAL: Your entire response must start with "## " on the very first character. \
+If you find yourself writing anything before "## ", delete it. \
+Search narration, thinking steps, "Based on my research...", "Let me search..." \
+and similar phrases are strictly forbidden.
 """
 
 def step1_user_prompt(already_explored: list[str]) -> str:
@@ -82,20 +87,21 @@ choose that. Justify every major technology choice explicitly.
 Prefer solutions that leverage MCP tools, LLM skills, APIs, or agent-native patterns ONLY \
 where they are genuinely the best option — not by default.
 
-You must output TWO artifacts, separated by the exact delimiter "---ARCHITECTURE-DIAGRAM---":
+Start your response directly with architecture prose (~250 words) covering: solution overview, \
+technology choices and rationale, major components, data flows, deployment target, known \
+constraints, and any components that will likely require human assistance in implementation \
+(API keys, paid services, hardware, proprietary data). No title, no label, no preamble — \
+begin immediately with the prose.
 
-ARTIFACT 1: ARCHITECTURE.md prose (~250 words)
-Include: solution overview, technology choices and rationale, major components, data flows, \
-deployment target, known constraints, and any components that will likely require human \
-assistance in implementation (API keys, paid services, hardware, proprietary data).
+Then output this exact delimiter on its own line:
+---ARCHITECTURE-DIAGRAM---
 
-ARTIFACT 2: A valid Mermaid diagram
-Output ONLY the raw Mermaid code block (starting with ```mermaid and ending with ```). \
+Then output ONLY a raw Mermaid code block (starting with \`\`\`mermaid and ending with \`\`\`). \
 The diagram must be a flowchart or C4-style diagram showing major components and their \
-relationships. It MUST render correctly on GitHub without plugins — validate syntax mentally \
-before outputting. Do not include any prose in Artifact 2 — only the mermaid block.
+relationships. It MUST render correctly on GitHub without plugins. \
+No label, no prose, no title after the delimiter — only the mermaid block.
 
-Do not include any preamble or commentary outside these two artifacts.
+Do not include any preamble or commentary outside these two sections.
 """
 
 def step2_user_prompt(problem_md: str) -> str:
