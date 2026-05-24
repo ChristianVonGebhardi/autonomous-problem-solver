@@ -39,6 +39,8 @@ Output format — respond with EXACTLY this Markdown structure, nothing else bef
 
 ## <Problem Title>
 
+**Problem statement:** <exactly one sentence clearly stating the core problem>
+
 **Who experiences this problem:** <1-2 sentences>
 
 **How frequently:** <1 sentence>
@@ -48,6 +50,13 @@ Output format — respond with EXACTLY this Markdown structure, nothing else bef
 **Why software can solve this:** <1-2 sentences>
 
 **Estimated impact if solved:** <1-2 sentences>
+
+**Sources:**
+- <publication or URL for claim 1>
+- <publication or URL for claim 2>
+- <publication or URL for claim 3>
+
+List only sources you actually retrieved during web search. Do not fabricate sources.
 
 Do not include any preamble, explanation, or commentary outside this structure.
 
