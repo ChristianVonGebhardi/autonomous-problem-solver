@@ -322,7 +322,6 @@ func runDemo(cmd *cobra.Command, args []string) error {
 			return nil
 		case <-ticker.C:
 			since24h = time.Now().Add(-24 * time.Hour)
-			since1h := time.Now().Add(-time.Hour)
 
 			for _, p := range policies {
 				window, _ := time.ParseDuration("1h")
