@@ -299,7 +299,6 @@ class Step3Runner:
         done_md = make_done_md(
             slug=self.slug,
             summary=summary,
-            src_path="src",
             repo_base_url=self.repo_base_url,
         )
         try:

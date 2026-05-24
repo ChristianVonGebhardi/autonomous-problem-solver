@@ -10,17 +10,16 @@ from __future__ import annotations
 from shared.utils import now_iso
 
 
-def make_done_md(slug: str, summary: str, src_path: str, repo_base_url: str) -> str:
+def make_done_md(slug: str, summary: str, repo_base_url: str) -> str:
     """
     Generates the content for DONE.md.
 
     Args:
         slug:           Problem slug, e.g. "2025-05-14-offline-medication-reminders"
         summary:        1-3 sentence description of what was built.
-        src_path:       Relative path to the src/ directory in the repo.
         repo_base_url:  e.g. "https://github.com/ChristianVonGebhardi/autonomous-problem-solver"
     """
-    src_url = f"{repo_base_url}/tree/feature/{slug}/{src_path}"
+
     return f"""# ✅ DONE — {slug}
 
 **Completed at:** {now_iso()}
@@ -31,7 +30,7 @@ def make_done_md(slug: str, summary: str, src_path: str, repo_base_url: str) -> 
 
 ## Source code
 
-[{src_path}/]({src_url})
+[Repository branch]({repo_base_url}/tree/feature/{slug})
 
 ---
 *This file was written automatically by the autonomous problem-solving agent.*
