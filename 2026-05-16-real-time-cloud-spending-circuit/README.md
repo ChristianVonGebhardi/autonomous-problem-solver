@@ -33,6 +33,7 @@ Cloud Resources → Connectors → Metric Store → Circuit Breaker Engine → A
 git clone <repo>
 cd cloud-circuit-breaker
 go mod download
+go mod tidy
 
 # Run the interactive demo (90 seconds, simulates runaway spending)
 go run ./cmd/cli demo
