@@ -164,6 +164,7 @@ def _handle_cancellations(
             slug=slug,
             repo_owner=repo_owner,
             repo_name=repo_name,
+            processed_resumed=None,  # not needed for cancellation/fresh cycles
         )
         runner.handle_cancelled(
             blocker_description=blocker_description or "No active blocker recorded.",
@@ -230,6 +231,7 @@ def _handle_resumes(
             slug=slug,
             repo_owner=repo_owner,
             repo_name=repo_name,
+            processed_resumed=processed_resumed,
         )
         result = runner.run_resumed(cancelled_md=cancelled_md)
         logger.info("Resume result for slug=%s: %s", slug, result)
@@ -280,6 +282,7 @@ def _handle_fresh_branches(
             slug=pb.slug,
             repo_owner=repo_owner,
             repo_name=repo_name,
+            processed_resumed=None,  # not needed for cancellation/fresh cycles
         )
         result = runner.run_fresh()
         logger.info("Step 3 result for slug=%s: %s", pb.slug, result)

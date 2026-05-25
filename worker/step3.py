@@ -42,6 +42,7 @@ class Step3Runner:
         slug: str,
         repo_owner: str,
         repo_name: str,
+        processed_resumed: set | None = None,
     ):
         self.github = github
         self.claude = claude
@@ -50,6 +51,7 @@ class Step3Runner:
         self.repo_owner = repo_owner
         self.repo_name = repo_name
         self.repo_base_url = REPO_BASE_URL_TEMPLATE.format(owner=repo_owner, repo=repo_name)
+        self.processed_resumed = processed_resumed  # reference to main loop's set
 
     # ------------------------------------------------------------------
     # Public entry points
@@ -216,6 +218,10 @@ class Step3Runner:
                     self.github.add_label_to_issue(issue, "cycle-resume")
                     logger.info("[%s] Added cycle-resume to Issue #%d for auto-resume (%d/%d)",
                             self.slug, issue.number, resume_count, self.MAX_AUTO_RESUMES)
+                                        # Clear from processed_resumed so worker picks it up on next poll
+                    if self.processed_resumed is not None:
+                        self.processed_resumed.discard(self.slug)
+                        logger.info("[%s] Cleared from processed_resumed for auto-resume", self.slug)
                     return "resuming"
         except Exception as e:
             logger.error("[%s] Failed to add cycle-resume label: %s", self.slug, e)
