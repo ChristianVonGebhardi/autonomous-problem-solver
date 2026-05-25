@@ -105,7 +105,7 @@ begin immediately with the prose.
 Then output this exact delimiter on its own line:
 ---ARCHITECTURE-DIAGRAM---
 
-Then output ONLY a raw Mermaid code block (starting with \`\`\`mermaid and ending with \`\`\`). \
+Then output ONLY a raw Mermaid code block (starting with ```mermaid and ending with ```). \
 The diagram must be a flowchart or C4-style diagram showing major components and their \
 relationships. It MUST render correctly on GitHub without plugins. \
 No label, no prose, no title after the delimiter — only the mermaid block.
