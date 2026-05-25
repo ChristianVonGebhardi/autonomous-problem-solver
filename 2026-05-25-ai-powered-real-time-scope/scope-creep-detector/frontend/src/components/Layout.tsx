@@ -8,9 +8,7 @@ import {
   AlertTriangle,
   ClipboardList,
   LogOut,
-  Bell,
   Shield,
-  ChevronRight,
 } from 'lucide-react'
 import clsx from 'clsx'
 
