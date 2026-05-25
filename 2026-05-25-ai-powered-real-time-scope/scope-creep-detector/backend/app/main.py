@@ -26,16 +26,16 @@ async def lifespan(app: FastAPI):
     Path(settings.upload_dir).mkdir(parents=True, exist_ok=True)
     Path(f"{settings.upload_dir}/contracts").mkdir(parents=True, exist_ok=True)
     Path(f"{settings.upload_dir}/change_orders").mkdir(parents=True, exist_ok=True)
-    
+
     # Create tables and pgvector extension
     async with engine.begin() as conn:
         await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
         await conn.run_sync(Base.metadata.create_all)
-    
+
     logger.info("application_started", env=settings.app_env)
-    
+
     yield
-    
+
     await engine.dispose()
     logger.info("application_stopped")
 
@@ -50,7 +50,12 @@ app = FastAPI(
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.frontend_url, "http://localhost:5173", "http://localhost:3000"],
+    allow_origins=[
+        settings.frontend_url,
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:5173",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -75,7 +80,7 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str):
     """WebSocket endpoint for real-time notifications."""
     await manager.connect(websocket, user_id)
     logger.info("ws_client_connected", user_id=user_id)
-    
+
     # Start Redis subscriber in background if available
     redis_task = None
     try:
@@ -84,7 +89,7 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str):
         )
     except Exception:
         pass
-    
+
     try:
         while True:
             # Keep connection alive, handle ping/pong
@@ -96,6 +101,11 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str):
         if redis_task:
             redis_task.cancel()
         logger.info("ws_client_disconnected", user_id=user_id)
+    except Exception as e:
+        manager.disconnect(websocket, user_id)
+        if redis_task:
+            redis_task.cancel()
+        logger.warning("ws_error", user_id=user_id, error=str(e))
 
 
 async def _redis_subscriber(user_id: str, websocket: WebSocket):
@@ -105,7 +115,7 @@ async def _redis_subscriber(user_id: str, websocket: WebSocket):
         r = await aioredis.from_url(settings.redis_url)
         pubsub = r.pubsub()
         await pubsub.subscribe("violations")
-        
+
         async for message in pubsub.listen():
             if message["type"] == "message":
                 try:
