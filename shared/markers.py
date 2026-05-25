@@ -30,7 +30,7 @@ def make_done_md(slug: str, summary: str, repo_base_url: str) -> str:
 
 ## Source code
 
-[Repository branch]({repo_base_url}/tree/feature/{slug})
+[Repository branch]({repo_base_url}/tree/feature/{slug}/{slug})
 
 ---
 *This file was written automatically by the autonomous problem-solving agent.*
