@@ -15,13 +15,15 @@ export function useWebSocket() {
   const connect = useCallback(() => {
     if (!user?.id) return
 
-    const wsUrl = `ws://${window.location.host}/ws/${user.id}`
+    // Use wss:// in production, ws:// in development
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    const wsUrl = `${protocol}//${window.location.host}/ws/${user.id}`
     const ws = new WebSocket(wsUrl)
     wsRef.current = ws
 
     ws.onopen = () => {
       reconnectAttemptsRef.current = 0
-      // Keep alive ping
+      // Keep-alive ping every 30 seconds
       const pingInterval = setInterval(() => {
         if (ws.readyState === WebSocket.OPEN) {
           ws.send('ping')
@@ -31,41 +33,45 @@ export function useWebSocket() {
       }, 30000)
     }
 
-    ws.onmessage = (event) => {
+    ws.onmessage = (event: MessageEvent) => {
       if (event.data === 'pong') return
 
       try {
-        const message: WSMessage = JSON.parse(event.data)
-        
+        const message: WSMessage = JSON.parse(event.data as string)
+
         if (message.type === 'violation_detected') {
           const data = message.data as {
-            severity: string
-            summary: string
+            severity?: string
+            summary?: string
             estimated_cost?: number
             contract_title?: string
           }
-          
-          // Show toast notification
-          const severity = data.severity
-          const color = severity === 'critical' ? '🚨' : severity === 'high' ? '⚠️' : '📋'
-          
+
+          const severity = data.severity ?? 'medium'
+          const emoji =
+            severity === 'critical' ? '🚨' : severity === 'high' ? '⚠️' : '📋'
+
           toast(
-            `${color} Scope Creep Detected!\n${data.summary}`,
+            `${emoji} Scope Creep Detected!\n${data.summary ?? ''}`,
             {
               duration: 6000,
               style: {
-                background: severity === 'critical' ? '#7f1d1d' : 
-                           severity === 'high' ? '#78350f' : '#1e3a5f',
+                background:
+                  severity === 'critical'
+                    ? '#7f1d1d'
+                    : severity === 'high'
+                    ? '#78350f'
+                    : '#1e3a5f',
                 color: '#f1f5f9',
-              }
+              },
             }
           )
-          
-          // Invalidate queries
+
+          // Invalidate relevant queries so data refreshes
           queryClient.invalidateQueries({ queryKey: ['violations'] })
           queryClient.invalidateQueries({ queryKey: ['change-orders'] })
           queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] })
-          
+
           addNotification(message)
         }
       } catch (e) {
@@ -74,7 +80,7 @@ export function useWebSocket() {
     }
 
     ws.onclose = () => {
-      // Reconnect with exponential backoff
+      // Reconnect with exponential backoff (max 5 attempts)
       if (reconnectAttemptsRef.current < 5) {
         const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 30000)
         reconnectTimeoutRef.current = setTimeout(() => {
@@ -84,8 +90,8 @@ export function useWebSocket() {
       }
     }
 
-    ws.onerror = (error) => {
-      console.error('WebSocket error:', error)
+    ws.onerror = () => {
+      // onclose will fire after onerror, triggering reconnect
     }
   }, [user?.id, addNotification, queryClient])
 
@@ -95,9 +101,9 @@ export function useWebSocket() {
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current)
       }
-      wsRef.current?.close()
+      if (wsRef.current) {
+        wsRef.current.close()
+      }
     }
   }, [connect])
-
-  return wsRef.current
 }
