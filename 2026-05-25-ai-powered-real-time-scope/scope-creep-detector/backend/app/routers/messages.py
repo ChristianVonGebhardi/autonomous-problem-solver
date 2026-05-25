@@ -17,7 +17,7 @@ async def process_message_inline(
     message_id: str,
     contract_id: str,
     user_id: str,
-):
+) -> None:
     """Process a message for scope creep in background (uses its own DB session)."""
     from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
     from app.services.scope_analyzer import (
@@ -38,7 +38,9 @@ async def process_message_inline(
             msg_result = await db.execute(select(Message).where(Message.id == message_id))
             message = msg_result.scalar_one_or_none()
 
-            contract_result = await db.execute(select(Contract).where(Contract.id == contract_id))
+            contract_result = await db.execute(
+                select(Contract).where(Contract.id == contract_id)
+            )
             contract = contract_result.scalar_one_or_none()
 
             if not message or not contract:
@@ -112,9 +114,10 @@ async def process_message_inline(
                     "terms": change_order.terms,
                     "professional_note": co_content.get("professional_note", ""),
                 }
-                generate_change_order_pdf(pdf_data, pdf_path)
-                change_order.pdf_path = pdf_path
-                await db.commit()
+                success = generate_change_order_pdf(pdf_data, pdf_path)
+                if success:
+                    change_order.pdf_path = pdf_path
+                    await db.commit()
 
                 # Push WebSocket notification
                 try:
@@ -135,12 +138,13 @@ async def process_message_inline(
                             },
                         },
                     )
-                except Exception as e:
-                    logger.warning("ws_notify_failed", error=str(e))
+                except Exception as ws_err:
+                    logger.warning("ws_notify_failed", error=str(ws_err))
 
                 logger.info("change_order_created", change_order_id=str(change_order.id))
+
     except Exception as e:
-        logger.error("process_message_error", error=str(e))
+        logger.error("process_message_error", error=str(e), exc_info=True)
     finally:
         await engine.dispose()
 
@@ -166,7 +170,7 @@ async def analyze_message(
     if contract.status != "active":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Contract must be in 'active' status to analyze messages",
+            detail=f"Contract must be in 'active' status to analyze messages. Current status: {contract.status}",
         )
 
     message = Message(
