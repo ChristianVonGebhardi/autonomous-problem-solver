@@ -119,6 +119,21 @@ async def get_relevant_clauses(
     return clauses
 
 
+async def get_clauses_fallback(
+    db: AsyncSession,
+    contract_id: str,
+    top_k: int = 8,
+) -> List[ContractClause]:
+    """Fallback: retrieve clauses without vector search (no embeddings available)."""
+    result = await db.execute(
+        select(ContractClause)
+        .where(ContractClause.contract_id == contract_id)
+        .order_by(ContractClause.chunk_index)
+        .limit(top_k)
+    )
+    return list(result.scalars().all())
+
+
 async def analyze_message_for_scope_creep(
     db: AsyncSession,
     message: Message,
@@ -126,24 +141,38 @@ async def analyze_message_for_scope_creep(
 ) -> Optional[Violation]:
     """
     Main scope analysis pipeline:
-    1. Embed the message
+    1. Embed the message (or skip if no API key)
     2. Retrieve relevant contract clauses via pgvector
     3. Call GPT-4o for analysis
     4. Create violation record if detected
     """
+    if not settings.openai_api_key:
+        logger.warning("no_openai_key_skipping_analysis")
+        return None
+
     logger.info(
         "analyzing_message",
         message_id=str(message.id),
         contract_id=str(contract.id),
     )
 
-    # 1. Embed the message
-    message_embedding = await embed_text(message.content)
+    try:
+        # 1. Embed the message
+        message_embedding = await embed_text(message.content)
 
-    # 2. Retrieve relevant clauses
-    relevant_clauses = await get_relevant_clauses(
-        db, str(contract.id), message_embedding, top_k=6
-    )
+        # 2. Retrieve relevant clauses
+        relevant_clauses = await get_relevant_clauses(
+            db, str(contract.id), message_embedding, top_k=6
+        )
+
+        if not relevant_clauses:
+            # Fallback to first N clauses if no embeddings stored
+            relevant_clauses = await get_clauses_fallback(db, str(contract.id), top_k=8)
+
+    except Exception as e:
+        logger.warning("embedding_failed_using_fallback", error=str(e))
+        # Try fallback without embeddings
+        relevant_clauses = await get_clauses_fallback(db, str(contract.id), top_k=8)
 
     if not relevant_clauses:
         logger.warning("no_clauses_found", contract_id=str(contract.id))
@@ -238,7 +267,7 @@ async def generate_change_order_content(
         hourly_rate=hourly_rate,
         out_of_scope_work=out_of_scope_work,
         estimated_hours=estimated_hours,
-        cited_clause=cited_clause,
+        cited_clause=cited_clause or "General scope as defined in the original contract",
     )
 
     response = await client.chat.completions.create(
