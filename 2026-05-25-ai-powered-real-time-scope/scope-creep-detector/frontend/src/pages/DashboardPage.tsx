@@ -42,12 +42,13 @@ function StatCard({
 }
 
 function SeverityBadge({ severity }: { severity: string }) {
-  const cls = {
-    low: 'badge-severity-low',
-    medium: 'badge-severity-medium',
-    high: 'badge-severity-high',
-    critical: 'badge-severity-critical',
-  }[severity] ?? 'badge-severity-low'
+  const cls =
+    {
+      low: 'badge-severity-low',
+      medium: 'badge-severity-medium',
+      high: 'badge-severity-high',
+      critical: 'badge-severity-critical',
+    }[severity] ?? 'badge-severity-low'
 
   return (
     <span className={clsx('text-xs px-2 py-0.5 rounded-full font-medium border', cls)}>
@@ -136,7 +137,10 @@ export default function DashboardPage() {
               </span>
             </div>
           </div>
-          <Link to="/change-orders" className="text-amber-400 hover:text-amber-300 text-sm flex items-center gap-1">
+          <Link
+            to="/change-orders"
+            className="text-amber-400 hover:text-amber-300 text-sm flex items-center gap-1"
+          >
             Review <ChevronRight className="w-4 h-4" />
           </Link>
         </div>
@@ -204,7 +208,9 @@ export default function DashboardPage() {
             <div className="text-center py-8 text-slate-500">
               <ClipboardList className="w-8 h-8 mx-auto mb-2 opacity-40" />
               <p>No pending change orders</p>
-              <p className="text-sm mt-1">Change orders are auto-generated when scope creep is detected</p>
+              <p className="text-sm mt-1">
+                Change orders are auto-generated when scope creep is detected
+              </p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -232,7 +238,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Quick start guide (shown when no contracts) */}
+      {/* Quick start guide (shown when no contracts yet) */}
       {(s?.total_contracts ?? 0) === 0 && (
         <div className="card border-dashed border-slate-600">
           <h3 className="text-lg font-semibold text-white mb-4">🚀 Get Started</h3>
@@ -241,7 +247,7 @@ export default function DashboardPage() {
               {
                 step: '1',
                 title: 'Upload Your Contract',
-                desc: 'Upload a PDF or DOCX signed contract. We\'ll parse and index every clause.',
+                desc: "Upload a PDF or DOCX signed contract. We'll parse and index every clause.",
                 link: '/contracts',
                 cta: 'Upload Contract',
               },
@@ -264,7 +270,10 @@ export default function DashboardPage() {
                 <div className="text-primary-400 font-bold text-lg mb-2">Step {step}</div>
                 <h4 className="font-medium text-white mb-1">{title}</h4>
                 <p className="text-sm text-slate-400 mb-3">{desc}</p>
-                <Link to={link} className="text-primary-400 hover:text-primary-300 text-sm font-medium flex items-center gap-1">
+                <Link
+                  to={link}
+                  className="text-primary-400 hover:text-primary-300 text-sm font-medium flex items-center gap-1"
+                >
                   {cta} <ChevronRight className="w-3 h-3" />
                 </Link>
               </div>
