@@ -173,7 +173,7 @@ class Step3Runner:
             resume_count = 0
 
         resume_count += 1
-        logger.info("[%s] Auto-resume count: %d/%d", self.slug, resume_count, MAX_AUTO_RESUMES)
+        logger.info("[%s] Auto-resume count: %d/%d", self.slug, resume_count, self.MAX_AUTO_RESUMES)
 
         # Write updated count back to branch
         try:
@@ -187,23 +187,23 @@ class Step3Runner:
             logger.warning("[%s] Failed to write RESUME_COUNT: %s", self.slug, e)
 
         # Check if limit exceeded
-        if resume_count > MAX_AUTO_RESUMES:
+        if resume_count > self.MAX_AUTO_RESUMES:
             logger.warning(
                 "[%s] Max auto-resumes (%d) exceeded — opening blocker for human review",
-                self.slug, MAX_AUTO_RESUMES,
+                self.slug, self.MAX_AUTO_RESUMES,
             )
             return self._handle_blocker(BlockerInfo(
-                summary=f"Max auto-resume limit ({MAX_AUTO_RESUMES}) reached — human review required",
+                summary=f"Max auto-resume limit ({self.MAX_AUTO_RESUMES}) reached — human review required",
                 what_is_blocked=f"Implementation has been auto-resumed {resume_count} times due to "
                             f"response truncation (stop_reason=max_tokens) but has not completed. "
-                            f"The MVP may require more files than can be generated in {MAX_AUTO_RESUMES} cycles.",
+                            f"The MVP may require more files than can be generated in {self.MAX_AUTO_RESUMES} cycles.",
                 what_was_attempted=f"Claude was prompted {resume_count} times with all existing files as context. "
                                 f"Each run committed partial output before hitting the token limit.",
                 resolution_options=[
-                    f"Add label cycle-resume to [CYCLE] issue to continue for {MAX_AUTO_RESUMES} more cycles",
+                    f"Add label cycle-resume to [CYCLE] issue to continue for {self.MAX_AUTO_RESUMES} more cycles",
                     "Review committed files to assess if MVP is already functionally complete",
                     "Cancel this cycle if the scope is too large for automated implementation",
-                    f"Increase MAX_AUTO_RESUMES in worker/step3.py (currently {MAX_AUTO_RESUMES})",
+                    f"Increase MAX_AUTO_RESUMES in worker/step3.py (currently {self.MAX_AUTO_RESUMES})",
                 ],
                 impact_if_unresolved="MVP remains incomplete — no DONE.md will be created.",
             ))
@@ -215,7 +215,7 @@ class Step3Runner:
                 if issue.title.startswith(f"[CYCLE] {self.slug}"):
                     self.github.add_label_to_issue(issue, "cycle-resume")
                     logger.info("[%s] Added cycle-resume to Issue #%d for auto-resume (%d/%d)",
-                            self.slug, issue.number, resume_count, MAX_AUTO_RESUMES)
+                            self.slug, issue.number, resume_count, self.MAX_AUTO_RESUMES)
                     return "resuming"
         except Exception as e:
             logger.error("[%s] Failed to add cycle-resume label: %s", self.slug, e)
