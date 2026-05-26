@@ -2,62 +2,69 @@ import structlog
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
-from app.config import get_settings
-from app.db.session import init_db
-from app.graph.neo4j_client import get_neo4j_client
-from app.vector.qdrant_client import get_qdrant_client
-from app.api.v1 import ingest, query, graph, repositories
+from app.config import settings
+from app.db.postgres import init_db
+from app.db.neo4j_client import neo4j_client
+from app.db.qdrant_client import qdrant_client
+from app.api.routes import ingest, query, graph, health
 
 logger = structlog.get_logger()
-settings = get_settings()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize all connections on startup."""
-    logger.info("Starting Codebase Knowledge Platform API")
+    logger.info("Starting Codebase Knowledge Platform")
 
-    # Initialize database
+    # Initialize PostgreSQL
     await init_db()
+    logger.info("PostgreSQL initialized")
 
-    # Initialize Neo4j schema
-    neo4j = get_neo4j_client()
-    await neo4j.initialize_schema()
+    # Initialize Neo4j
+    await neo4j_client.connect()
+    await neo4j_client.create_indexes()
+    logger.info("Neo4j connected and indexes created")
 
-    # Initialize Qdrant collection
-    qdrant = get_qdrant_client()
-    await qdrant.initialize_collection()
+    # Initialize Qdrant
+    await qdrant_client.connect()
+    await qdrant_client.create_collections()
+    logger.info("Qdrant connected and collections ready")
 
-    logger.info("All services initialized")
     yield
 
-    logger.info("Shutting down")
-    await neo4j.close()
+    # Cleanup
+    await neo4j_client.close()
+    logger.info("Shutdown complete")
 
 
 app = FastAPI(
     title="Codebase Knowledge Intelligence Platform",
-    description="AI-powered knowledge graph for developer onboarding and codebase understanding",
+    description="AI-powered knowledge graph for codebases",
     version="1.0.0",
     lifespan=lifespan,
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins_list,
+    allow_origins=["http://localhost:3000", "http://localhost:3001", "*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # Register routers
-app.include_router(ingest.router, prefix="/api/v1/ingest", tags=["Ingestion"])
-app.include_router(query.router, prefix="/api/v1/query", tags=["Query"])
-app.include_router(graph.router, prefix="/api/v1/graph", tags=["Graph"])
-app.include_router(repositories.router, prefix="/api/v1/repositories", tags=["Repositories"])
+app.include_router(health.router, prefix="/api/v1", tags=["health"])
+app.include_router(ingest.router, prefix="/api/v1/ingest", tags=["ingestion"])
+app.include_router(query.router, prefix="/api/v1/query", tags=["query"])
+app.include_router(graph.router, prefix="/api/v1/graph", tags=["graph"])
 
 
-@app.get("/api/v1/health")
-async def health():
-    return {"status": "ok", "version": "1.0.0"}
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc):
+    logger.error("Unhandled exception", error=str(exc), path=request.url.path)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error", "error": str(exc)},
+    )
