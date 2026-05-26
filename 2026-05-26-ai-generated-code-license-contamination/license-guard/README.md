@@ -1,148 +1,383 @@
-# LicenseGuard - AI-Generated Code License Contamination Detection
+# LicenseGuard
 
-## Overview
+**AI-Generated Code License Contamination Detection Platform**
 
-LicenseGuard is a developer-native license contamination detection platform that intercepts AI-generated code at multiple pipeline stages. It detects potential open-source license contamination in AI-generated code using AST parsing, MinHash LSH fingerprinting, and semantic similarity analysis.
+LicenseGuard automatically scans code for open-source license contamination — detecting when AI coding assistants (GitHub Copilot, Cursor, Claude) reproduce copyrighted FOSS code in your codebase. It uses MinHash fingerprinting, semantic embeddings, and a FOSS corpus to identify GPL, AGPL, LGPL, and other copyleft code before it reaches production.
 
 ## Architecture
 
-- **Backend**: Python/FastAPI with PostgreSQL (pgvector), Redis, and RQ workers
-- **CLI**: Go binary for pre-commit hooks
-- **Dashboard**: React/TypeScript compliance dashboard
-- **Detection**: tree-sitter AST parsing + MinHash LSH + sentence-transformers
+```
+┌─────────────────────────────────────────────────────────┐
+│  Developer Tools                                         │
+│  ┌──────────────┐  ┌──────────────┐  ┌───────────────┐  │
+│  │  Go CLI       │  │  Pre-commit  │  │  React        │  │
+│  │  licenseguard │  │  Hook        │  │  Dashboard    │  │
+│  └──────┬───────┘  └──────┬───────┘  └───────┬───────┘  │
+└─────────┼────────────────┼──────────────────┼───────────┘
+          │                │                  │
+          ▼                ▼                  ▼
+┌─────────────────────────────────────────────────────────┐
+│  FastAPI Backend (Python)                                │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐              │
+│  │  /scan   │  │/remediate│  │/dashboard│              │
+│  └────┬─────┘  └────┬─────┘  └──────────┘              │
+│       │             │                                   │
+│  ┌────▼──────────────▼─────────────────────────────┐   │
+│  │  Detection Engine                                │   │
+│  │  MinHash LSH + Sentence Transformers + pgvector  │   │
+│  └────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────┘
+          │                │
+          ▼                ▼
+    PostgreSQL          Redis
+    (embeddings,        (job queue)
+     audit trail)
+```
 
-## Prerequisites
+## Quick Start
 
-- Docker and Docker Compose
+### Prerequisites
+
+- Docker & Docker Compose
 - Go 1.21+ (for CLI)
-- Node.js 18+ (for dashboard)
-- Python 3.11+ (for backend, if running without Docker)
-- OpenAI API key (for remediation suggestions)
+- Node.js 20+ (for dashboard development)
 
-## Quick Start (Docker Compose)
+### 1. Start the Backend
 
 ```bash
 cd license-guard
 
 # Copy environment config
 cp .env.example .env
-
-# Add your OpenAI API key to .env
+# Optionally add your OpenAI key for AI-powered remediation:
 # OPENAI_API_KEY=sk-...
 
 # Start all services
-docker-compose up --build
+docker compose up -d
 
-# In another terminal, seed the corpus with sample FOSS snippets
-docker-compose exec backend python scripts/seed_corpus.py
-
-# Access the dashboard
-open http://localhost:3000
-
-# API is available at
-open http://localhost:8000/docs
+# Check status
+docker compose ps
 ```
 
-## Services
+Services started:
+- **Backend API**: http://localhost:8000
+- **Dashboard**: http://localhost:3000
+- **RQ Dashboard** (job monitoring): http://localhost:9181
+- **PostgreSQL**: localhost:5432
+- **Redis**: localhost:6379
 
-| Service | URL | Description |
-|---------|-----|-------------|
-| FastAPI Backend | http://localhost:8000 | REST API + Swagger docs |
-| React Dashboard | http://localhost:3000 | Compliance dashboard |
-| PostgreSQL | localhost:5432 | Database |
-| Redis | localhost:6379 | Job queue |
-| RQ Dashboard | http://localhost:9181 | Job monitoring |
-
-## CLI (Pre-commit Hook)
-
-### Install CLI
+### 2. Seed the FOSS Corpus
 
 ```bash
-cd cli
-go build -o licenseguard-cli ./cmd/licenseguard
-sudo mv licenseguard-cli /usr/local/bin/
-
-# Or use the install script
-./install-hook.sh
+# Wait for backend to be healthy, then seed the corpus
+docker compose exec backend python scripts/seed_corpus.py
 ```
 
-### Manual Scan
+This seeds the corpus with ~11 representative FOSS snippets covering GPL-2.0, GPL-3.0, AGPL-3.0, LGPL-2.1, MPL-2.0, MIT, Apache-2.0, BSD-3-Clause, and PSF licenses.
+
+### 3. Verify Everything Works
 
 ```bash
-# Scan a file
-licenseguard-cli scan --file path/to/file.py --api-url http://localhost:8000
+# Check API health
+curl http://localhost:8000/api/v1/health
 
-# Scan git diff (pre-commit mode)
-licenseguard-cli scan --diff --api-url http://localhost:8000
-
-# Scan with output format
-licenseguard-cli scan --file path/to/file.py --format json
+# Check corpus stats  
+curl http://localhost:8000/api/v1/corpus/stats
 ```
 
-### Install as Pre-commit Hook
+---
+
+## Using the Dashboard
+
+Open http://localhost:3000 in your browser.
+
+**Dashboard** — compliance overview with risk trends, top detected licenses, recent scans
+
+**Scan Code** — paste AI-generated code to check for license contamination. Includes example snippets:
+- "GPL heapsort (python)" — triggers a high-risk GPL match
+- "MIT debounce (javascript)" — triggers a low-risk MIT match
+- "Clean code (python)" — returns clean result
+
+**Scan History** — browse all scans with filtering by risk tier and status
+
+**Corpus** — view the FOSS corpus statistics and license breakdown
+
+---
+
+## Using the API
+
+### Scan code synchronously
 
 ```bash
-# In your project repository
-licenseguard-cli install-hook --api-url http://localhost:8000
-```
-
-## API Usage
-
-### Scan a Code Snippet
-
-```bash
-curl -X POST http://localhost:8000/api/v1/scan \
+curl -X POST http://localhost:8000/api/v1/scan/sync \
   -H "Content-Type: application/json" \
   -d '{
-    "code": "def binary_search(arr, target):\n    left, right = 0, len(arr) - 1\n    while left <= right:\n        mid = (left + right) // 2\n        if arr[mid] == target:\n            return mid\n        elif arr[mid] < target:\n            left = mid + 1\n        else:\n            right = mid - 1\n    return -1",
+    "code": "def heappush(heap, item):\n    heap.append(item)\n    _siftdown(heap, 0, len(heap)-1)",
     "language": "python",
-    "source": "ai_assistant",
-    "filename": "search.py"
+    "source": "api"
   }'
 ```
 
-### Get Scan Results
+Response:
+```json
+{
+  "scan_id": "abc123...",
+  "status": "completed",
+  "risk_tier": "high",
+  "matches": [{
+    "match_type": "semantic",
+    "similarity_score": 0.89,
+    "license_spdx": "GPL-3.0-only",
+    "license_risk_tier": "high",
+    "source_repo": "python/cpython"
+  }],
+  "recommendation": "BLOCK: This code matches a strong copyleft license...",
+  "message": "Scan completed. Found 1 potential license matches."
+}
+```
+
+### Asynchronous scan (for large files)
 
 ```bash
+# Submit
+curl -X POST http://localhost:8000/api/v1/scan \
+  -H "Content-Type: application/json" \
+  -d '{"code": "...", "source": "ci_cd"}'
+
+# Poll for result
 curl http://localhost:8000/api/v1/scan/{scan_id}
 ```
 
-### Get Remediation Suggestion
+### Request remediation suggestion
 
 ```bash
 curl -X POST http://localhost:8000/api/v1/remediate \
   -H "Content-Type: application/json" \
-  -d '{"scan_id": "...", "snippet_id": "..."}'
+  -d '{"scan_id": "abc123..."}'
 ```
 
-## Running Tests
+### API Documentation
+
+Interactive docs available at http://localhost:8000/docs
+
+---
+
+## Using the CLI
+
+### Build
 
 ```bash
-# Backend tests
-cd backend
-pip install -r requirements.txt
-pytest tests/ -v
+cd license-guard/cli
+go build -o bin/licenseguard ./cmd/licenseguard/
+```
 
-# CLI tests
-cd cli
+### Install globally
+
+```bash
+cd license-guard/cli
+go install ./cmd/licenseguard/
+```
+
+### Commands
+
+```bash
+# Check API status
+licenseguard status
+
+# Scan a file
+licenseguard scan myfile.py
+
+# Scan a directory
+licenseguard scan ./src/
+
+# Scan from stdin
+cat myfile.py | licenseguard scan --stdin
+
+# Scan git staged changes
+licenseguard scan --staged
+
+# JSON output (for CI/CD integration)
+licenseguard scan --output json myfile.py
+
+# Fail on medium+ risk (default: high)
+licenseguard scan --fail-on medium myfile.py
+
+# Install pre-commit hook
+licenseguard install-hook
+
+# Remove pre-commit hook
+licenseguard remove-hook
+```
+
+### Configuration
+
+Create `~/.licenseguard.yaml`:
+
+```yaml
+api_url: http://localhost:8000
+verbose: false
+```
+
+Or use environment variables:
+```bash
+export LICENSEGUARD_API_URL=https://your-api.company.com
+export LICENSEGUARD_VERBOSE=true
+```
+
+### Pre-commit Hook
+
+```bash
+cd your-repo
+licenseguard install-hook
+```
+
+The hook scans all staged files before each commit. If high-risk contamination is found, the commit is blocked.
+
+To bypass (not recommended):
+```bash
+git commit --no-verify
+```
+
+---
+
+## CI/CD Integration
+
+### GitHub Actions
+
+```yaml
+# .github/workflows/license-check.yml
+name: License Contamination Check
+
+on: [pull_request]
+
+jobs:
+  license-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install LicenseGuard CLI
+        run: |
+          go install github.com/licenseguard/cli/cmd/licenseguard@latest
+      
+      - name: Scan changed files
+        env:
+          LICENSEGUARD_API_URL: ${{ secrets.LICENSEGUARD_API_URL }}
+        run: |
+          git diff --name-only origin/main...HEAD | \
+            xargs licenseguard scan --fail-on high --output json
+```
+
+---
+
+## Detection Methods
+
+LicenseGuard uses three complementary detection strategies:
+
+| Method | How it works | Best for |
+|--------|-------------|----------|
+| **Exact Match** | SHA256 hash of normalized code | Verbatim copies |
+| **MinHash LSH** | Jaccard similarity on token k-grams | Near-duplicate code with minor edits |
+| **Semantic Embedding** | Cosine similarity of code embeddings (sentence-transformers) | Algorithmic clones, paraphrased implementations |
+
+### Risk Tier Taxonomy
+
+| Tier | Examples | Action |
+|------|----------|--------|
+| 🔴 **High** | GPL-2.0, GPL-3.0, AGPL-3.0, SSPL | Block — requires source disclosure |
+| 🟡 **Medium** | LGPL-2.1, MPL-2.0, EPL-2.0 | Warn — file-level copyleft may apply |
+| 🔵 **Low** | MIT, Apache-2.0, BSD-3-Clause | Info — attribution required |
+| ✅ **Clean** | No matches | Safe to use |
+
+---
+
+## Development
+
+### Backend Development
+
+```bash
+cd license-guard/backend
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Set up local database
+docker compose up postgres redis -d
+
+# Run migrations
+python -m alembic upgrade head
+
+# Seed corpus
+python scripts/seed_corpus.py
+
+# Start API
+uvicorn app.main:app --reload --port 8000
+
+# Start worker
+python -m rq worker --url redis://localhost:6379/0 scans
+```
+
+### Run Tests
+
+```bash
+cd license-guard/backend
+pytest tests/ -v
+```
+
+### Dashboard Development
+
+```bash
+cd license-guard/dashboard
+npm install
+npm run dev
+# → http://localhost:3000
+```
+
+### CLI Development
+
+```bash
+cd license-guard/cli
+go run ./cmd/licenseguard/ --help
 go test ./...
 ```
+
+---
 
 ## Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `OPENAI_API_KEY` | - | OpenAI API key for remediation |
-| `DATABASE_URL` | postgresql://... | PostgreSQL connection string |
-| `REDIS_URL` | redis://localhost:6379 | Redis connection string |
-| `SIMILARITY_THRESHOLD` | 0.8 | Match threshold (0-1) |
-| `API_SECRET_KEY` | - | JWT secret for API auth |
+| `DATABASE_URL` | `postgresql://licenseguard:licenseguard@localhost:5432/licenseguard` | PostgreSQL connection |
+| `REDIS_URL` | `redis://localhost:6379/0` | Redis connection |
+| `OPENAI_API_KEY` | (empty) | OpenAI key for AI remediation (optional) |
+| `SIMILARITY_THRESHOLD` | `0.75` | Minimum similarity score to flag (0-1) |
+| `MINHASH_NUM_PERM` | `128` | MinHash permutations (higher = more accurate) |
+| `EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | Sentence transformer model |
+| `CORS_ORIGINS` | `http://localhost:3000` | Allowed CORS origins |
 
-## License Risk Tiers
+---
 
-| Tier | Licenses | Action |
-|------|----------|--------|
-| 🔴 HIGH | GPL-2.0, GPL-3.0, AGPL-3.0 | Block commit |
-| 🟡 MEDIUM | LGPL-2.1, MPL-2.0, EUPL | Warn developer |
-| 🟢 LOW | MIT, Apache-2.0, BSD | Informational |
-| ⬜ UNKNOWN | Unidentified | Review required |
+## Production Deployment
+
+For production, use the Docker Compose setup with your own secrets:
+
+```bash
+# Generate a strong API key
+API_SECRET_KEY=$(openssl rand -hex 32)
+
+# Set production environment
+export DATABASE_URL=postgresql://user:pass@your-db-host:5432/licenseguard
+export REDIS_URL=redis://your-redis-host:6379/0
+export OPENAI_API_KEY=sk-your-key
+export API_SECRET_KEY=$API_SECRET_KEY
+
+docker compose up -d
+```
+
+For Kubernetes/EKS deployment, see the architecture docs.
+
+---
+
+## License
+
+This project is proprietary software. The corpus snippets used for detection retain their original licenses (GPL, MIT, Apache, etc.) and are used for fingerprinting purposes only — not included in any distributed binary.
