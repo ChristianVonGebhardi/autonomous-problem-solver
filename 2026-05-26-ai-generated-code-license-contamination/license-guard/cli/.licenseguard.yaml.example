@@ -1,0 +1,4 @@
+# LicenseGuard CLI Configuration
+api_url: http://localhost:8000
+verbose: false
+# api_key: your-api-key-here
