@@ -6,7 +6,6 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app.database import SessionLocal
 import logging
 
 logger = logging.getLogger(__name__)
@@ -380,26 +379,10 @@ memmove(void *dst, const void *src, size_t len)
 {
     size_t i;
 
-    /*
-     * If the buffers don't overlap, it doesn't matter what direction
-     * we copy in. If they do, it does matter. If the destination buffer
-     * is at a lower address than the source buffer, we copy from bottom
-     * to top. If the destination buffer is at a higher address than the
-     * source buffer, we copy from top to bottom.
-     */
     if ((uintptr_t)dst < (uintptr_t)src) {
-        /*
-         * As long as the sizes are at least sizeof(word), do word-sized
-         * copies.  The destination alignment may start off as not
-         * word-aligned, but we copy one byte at a time until it is
-         * word-aligned.
-         */
         for (i = 0; i < len; i++)
             ((uint8_t *)dst)[i] = ((const uint8_t *)src)[i];
     } else {
-        /*
-         * Copy from top to bottom.
-         */
         if (len != 0) {
             i = len;
             do {
@@ -412,7 +395,7 @@ memmove(void *dst, const void *src, size_t len)
 }"""
     },
 
-    # Python binary search (classic algorithm - often AI-generated)
+    # Python bisect (PSF licensed)
     {
         "source_repo": "python/cpython",
         "source_file": "Lib/bisect.py",
@@ -465,6 +448,7 @@ def bisect_left(a, x, lo=0, hi=None, *, key=None):
 
 def seed_database():
     """Seed the database with corpus snippets."""
+    from app.database import SessionLocal
     db = SessionLocal()
 
     try:
@@ -506,7 +490,7 @@ def seed_database():
         logger.info(f"✅ Corpus seeded successfully with {len(CORPUS_DATA)} snippets")
 
     except Exception as e:
-        logger.error(f"Failed to seed corpus: {e}")
+        logger.error(f"Failed to seed corpus: {e}", exc_info=True)
         db.rollback()
         raise
     finally:
