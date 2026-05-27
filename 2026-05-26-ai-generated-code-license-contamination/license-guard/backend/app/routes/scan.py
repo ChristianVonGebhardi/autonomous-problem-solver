@@ -112,10 +112,19 @@ async def create_scan_sync(
     except Exception as e:
         logger.error(f"Scan failed: {e}")
 
-    # Refresh and return result
-    db.expire(scan_job)
-    db.refresh(scan_job)
-    return _build_scan_result(scan_job, db)
+    # Reload from DB to get fresh state
+    db.close()
+
+    # Open a fresh session to get updated data
+    from app.database import SessionLocal
+    fresh_db = SessionLocal()
+    try:
+        fresh_job = fresh_db.query(ScanJob).filter(ScanJob.id == scan_id).first()
+        if not fresh_job:
+            raise HTTPException(status_code=500, detail="Scan job lost after processing")
+        return _build_scan_result(fresh_job, fresh_db)
+    finally:
+        fresh_db.close()
 
 
 @router.get("/scan/{scan_id}", response_model=ScanResult)
