@@ -7,12 +7,6 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB, ARRAY
 from sqlalchemy.orm import DeclarativeBase, relationship
 
-try:
-    from pgvector.sqlalchemy import Vector
-    PGVECTOR_AVAILABLE = True
-except ImportError:
-    PGVECTOR_AVAILABLE = False
-
 
 class Base(DeclarativeBase):
     pass
@@ -20,6 +14,14 @@ class Base(DeclarativeBase):
 
 def gen_uuid():
     return str(uuid.uuid4())
+
+
+# Try to import pgvector
+try:
+    from pgvector.sqlalchemy import Vector
+    PGVECTOR_AVAILABLE = True
+except ImportError:
+    PGVECTOR_AVAILABLE = False
 
 
 class CorpusSnippet(Base):
@@ -34,10 +36,9 @@ class CorpusSnippet(Base):
     code_snippet = Column(Text(), nullable=False)
     ast_tokens = Column(JSONB(), nullable=True)
     minhash_signature = Column(ARRAY(Integer()), nullable=True)
-    if PGVECTOR_AVAILABLE:
-        embedding = Column(Vector(384), nullable=True)
-    else:
-        embedding = Column(JSONB(), nullable=True)
+    # Use JSONB as the column type — pgvector handles it at the DB level
+    # We store/retrieve as list; pgvector column is managed by migration
+    embedding = Column(JSONB(), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now())
 
