@@ -1,9 +1,10 @@
 import uuid
 import logging
-from typing import List, Optional
+from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
 from app.database import get_db
 from app.models import CorpusSnippet
@@ -22,12 +23,12 @@ async def add_corpus_snippet(
 ):
     """Add a code snippet to the FOSS corpus for comparison."""
     risk_tier, _ = classify_license(snippet.license_spdx)
-    
+
     # Compute fingerprints
     tokens = tokenize_code(snippet.code_snippet, snippet.language)
     minhash = compute_minhash(tokens)
     embedding = compute_embedding(snippet.code_snippet)
-    
+
     corpus_snippet = CorpusSnippet(
         id=str(uuid.uuid4()),
         source_repo=snippet.source_repo,
@@ -43,7 +44,7 @@ async def add_corpus_snippet(
     db.add(corpus_snippet)
     db.commit()
     db.refresh(corpus_snippet)
-    
+
     return {
         "id": corpus_snippet.id,
         "license_spdx": corpus_snippet.license_spdx,
@@ -55,21 +56,19 @@ async def add_corpus_snippet(
 @router.get("/corpus/stats")
 async def get_corpus_stats(db: Session = Depends(get_db)):
     """Get corpus statistics."""
-    from sqlalchemy import func
-    
     total = db.query(func.count(CorpusSnippet.id)).scalar()
     by_tier = db.query(
         CorpusSnippet.license_risk_tier,
         func.count(CorpusSnippet.id)
     ).group_by(CorpusSnippet.license_risk_tier).all()
-    
+
     by_license = db.query(
         CorpusSnippet.license_spdx,
         func.count(CorpusSnippet.id)
     ).group_by(CorpusSnippet.license_spdx).order_by(
         func.count(CorpusSnippet.id).desc()
     ).limit(10).all()
-    
+
     return {
         "total_snippets": total,
         "by_risk_tier": [{"tier": t, "count": c} for t, c in by_tier],
