@@ -14,7 +14,6 @@ from app.detector import (
     cosine_similarity, compute_code_hash
 )
 from app.license_taxonomy import classify_license, get_highest_risk_tier, TIER_RECOMMENDATIONS
-from app.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -127,7 +126,6 @@ def _find_semantic_matches(
     try:
         # Try pgvector cosine search first
         try:
-            from pgvector.sqlalchemy import Vector
             from sqlalchemy import text
             embedding_str = '[' + ','.join(str(x) for x in analysis.embedding) + ']'
             sql = text("""
@@ -188,6 +186,7 @@ def process_scan_job(scan_job_id: str, database_url: str) -> Dict[str, Any]:
     """
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
+    from app.config import settings as app_settings
 
     engine = create_engine(database_url, pool_pre_ping=True)
     SessionFactory = sessionmaker(bind=engine)
@@ -210,10 +209,12 @@ def process_scan_job(scan_job_id: str, database_url: str) -> Dict[str, Any]:
         analysis = CodeAnalysis(scan_job.code_snippet, scan_job.language)
 
         # Find corpus matches
+        # Import settings from config
+        threshold = app_settings.similarity_threshold
         matches = find_corpus_matches(
             analysis,
             db,
-            threshold=settings.similarity_threshold
+            threshold=threshold
         )
 
         # Save matches to DB
@@ -271,7 +272,7 @@ def process_scan_job(scan_job_id: str, database_url: str) -> Dict[str, Any]:
         return result
 
     except Exception as e:
-        logger.error(f"Scan job failed: {scan_job_id}, error: {e}")
+        logger.error(f"Scan job failed: {scan_job_id}, error: {e}", exc_info=True)
         try:
             scan_job = db.query(ScanJob).filter(ScanJob.id == scan_job_id).first()
             if scan_job:
