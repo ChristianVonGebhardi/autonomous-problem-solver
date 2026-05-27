@@ -2,15 +2,17 @@ import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { api, ScanResult } from '../api/client'
 import RiskBadge from '../components/RiskBadge'
-import { Search, Copy, CheckCircle, AlertTriangle } from 'lucide-react'
+import { Search, CheckCircle } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
 const LANGUAGE_OPTIONS = [
   'python', 'javascript', 'typescript', 'go', 'java', 'c', 'cpp', 'rust', 'ruby', 'php', 'csharp',
 ]
 
-const EXAMPLE_SNIPPETS = {
-  'GPL heapsort (python)': `def heappush(heap, item):
+const EXAMPLE_SNIPPETS: Record<string, { code: string; language: string }> = {
+  'GPL heapsort (python)': {
+    language: 'python',
+    code: `def heappush(heap, item):
     """Push item onto heap, maintaining the heap invariant."""
     heap.append(item)
     _siftdown(heap, 0, len(heap)-1)
@@ -24,8 +26,10 @@ def heappop(heap):
         _siftup(heap, 0)
         return returnitem
     return lastelt`,
-
-  'MIT debounce (javascript)': `function debounce(func, wait, options) {
+  },
+  'MIT debounce (javascript)': {
+    language: 'javascript',
+    code: `function debounce(func, wait, options) {
   let lastArgs, lastThis, result, timerId, lastCallTime;
   let lastInvokeTime = 0;
   let leading = false;
@@ -46,14 +50,17 @@ def heappop(heap):
   }
   return invokeFunc;
 }`,
-
-  'Clean code (python)': `def calculate_tax(income: float, tax_rate: float = 0.2) -> float:
+  },
+  'Clean code (python)': {
+    language: 'python',
+    code: `def calculate_tax(income: float, tax_rate: float = 0.2) -> float:
     """Calculate tax amount based on income and tax rate."""
     if income < 0:
         raise ValueError("Income cannot be negative")
     if not 0 <= tax_rate <= 1:
         raise ValueError("Tax rate must be between 0 and 1")
     return round(income * tax_rate, 2)`,
+  },
 }
 
 export default function ScanPage() {
@@ -62,27 +69,30 @@ export default function ScanPage() {
   const [language, setLanguage] = useState('')
   const [filename, setFilename] = useState('')
   const [result, setResult] = useState<ScanResult | null>(null)
-  const [remediationRequested, setRemediationRequested] = useState(false)
 
   const scanMutation = useMutation({
-    mutationFn: () => api.scan({
-      code,
-      language: language || undefined,
-      source: 'api',
-      filename: filename || undefined,
-    }),
+    mutationFn: () =>
+      api.scan({
+        code,
+        language: language || undefined,
+        source: 'api',
+        filename: filename || undefined,
+      }),
     onSuccess: (data) => setResult(data),
   })
 
   const remediateMutation = useMutation({
     mutationFn: () => api.remediate(result!.scan_id),
-    onSuccess: () => setRemediationRequested(true),
   })
 
   const loadExample = (name: string) => {
-    setCode(EXAMPLE_SNIPPETS[name as keyof typeof EXAMPLE_SNIPPETS])
-    if (name.includes('python')) setLanguage('python')
-    else if (name.includes('javascript')) setLanguage('javascript')
+    const example = EXAMPLE_SNIPPETS[name]
+    if (example) {
+      setCode(example.code)
+      setLanguage(example.language)
+      setResult(null)
+      remediateMutation.reset()
+    }
   }
 
   return (
@@ -136,12 +146,16 @@ export default function ScanPage() {
               >
                 <option value="">Auto-detect</option>
                 {LANGUAGE_OPTIONS.map((l) => (
-                  <option key={l} value={l}>{l}</option>
+                  <option key={l} value={l}>
+                    {l}
+                  </option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Filename (optional)</label>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                Filename (optional)
+              </label>
               <input
                 type="text"
                 value={filename}
@@ -156,7 +170,7 @@ export default function ScanPage() {
           <button
             onClick={() => {
               setResult(null)
-              setRemediationRequested(false)
+              remediateMutation.reset()
               scanMutation.mutate()
             }}
             disabled={!code.trim() || scanMutation.isPending}
@@ -177,7 +191,7 @@ export default function ScanPage() {
 
           {scanMutation.error && (
             <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
-              Error: {String(scanMutation.error)}
+              Error: {String(scanMutation.error)}. Make sure the backend is running.
             </div>
           )}
         </div>
@@ -189,6 +203,9 @@ export default function ScanPage() {
               <div>
                 <Search className="w-12 h-12 mx-auto mb-3 opacity-30" />
                 <p className="text-sm">Results will appear here after scanning</p>
+                <p className="text-xs mt-2 opacity-70">
+                  Try one of the example snippets on the left
+                </p>
               </div>
             </div>
           )}
@@ -196,16 +213,22 @@ export default function ScanPage() {
           {result && (
             <div className="space-y-4">
               {/* Risk Summary */}
-              <div className={`rounded-xl p-5 border-2 ${
-                result.risk_tier === 'high' ? 'border-red-300 bg-red-50' :
-                result.risk_tier === 'medium' ? 'border-yellow-300 bg-yellow-50' :
-                result.risk_tier === 'low' ? 'border-blue-300 bg-blue-50' :
-                'border-green-300 bg-green-50'
-              }`}>
+              <div
+                className={`rounded-xl p-5 border-2 ${
+                  result.risk_tier === 'high'
+                    ? 'border-red-300 bg-red-50'
+                    : result.risk_tier === 'medium'
+                    ? 'border-yellow-300 bg-yellow-50'
+                    : result.risk_tier === 'low'
+                    ? 'border-blue-300 bg-blue-50'
+                    : 'border-green-300 bg-green-50'
+                }`}
+              >
                 <div className="flex items-center gap-3 mb-2">
                   <RiskBadge tier={result.risk_tier} className="text-sm" />
                   <span className="text-sm font-medium text-gray-700">
-                    {result.matches.length} match{result.matches.length !== 1 ? 'es' : ''} found
+                    {result.matches.length} match
+                    {result.matches.length !== 1 ? 'es' : ''} found
                   </span>
                 </div>
                 <p className="text-sm text-gray-600">{result.recommendation}</p>
@@ -258,7 +281,7 @@ export default function ScanPage() {
                 >
                   View Full Report
                 </button>
-                {result.matches.length > 0 && !remediationRequested && (
+                {result.matches.length > 0 && !remediateMutation.data && (
                   <button
                     onClick={() => remediateMutation.mutate()}
                     disabled={remediateMutation.isPending}
