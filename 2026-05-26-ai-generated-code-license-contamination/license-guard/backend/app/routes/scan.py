@@ -57,9 +57,9 @@ async def create_scan(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
 ):
-    """Submit a code snippet for license contamination scanning."""
+    """Submit a code snippet for license contamination scanning (async)."""
     scan_id = str(uuid.uuid4())
-    
+
     # Create scan job record
     scan_job = ScanJob(
         id=scan_id,
@@ -72,10 +72,10 @@ async def create_scan(
     )
     db.add(scan_job)
     db.commit()
-    
+
     # Enqueue in background
     background_tasks.add_task(enqueue_scan, scan_id)
-    
+
     return ScanJobResponse(
         scan_id=scan_id,
         status="pending",
@@ -91,7 +91,7 @@ async def create_scan_sync(
 ):
     """Submit a code snippet for synchronous scanning (blocks until complete)."""
     scan_id = str(uuid.uuid4())
-    
+
     # Create scan job record
     scan_job = ScanJob(
         id=scan_id,
@@ -104,15 +104,16 @@ async def create_scan_sync(
     )
     db.add(scan_job)
     db.commit()
-    
+
     # Process synchronously
     from app.scanner import process_scan_job
     try:
         process_scan_job(scan_id, settings.database_url)
     except Exception as e:
         logger.error(f"Scan failed: {e}")
-    
+
     # Refresh and return result
+    db.expire(scan_job)
     db.refresh(scan_job)
     return _build_scan_result(scan_job, db)
 
@@ -126,18 +127,18 @@ async def get_scan_result(
     scan_job = db.query(ScanJob).filter(ScanJob.id == scan_id).first()
     if not scan_job:
         raise HTTPException(status_code=404, detail="Scan job not found")
-    
+
     return _build_scan_result(scan_job, db)
 
 
 def _build_scan_result(scan_job: ScanJob, db: Session) -> ScanResult:
     """Build ScanResult from a ScanJob model."""
     from app.license_taxonomy import TIER_RECOMMENDATIONS
-    
+
     matches = db.query(ScanMatch).filter(
         ScanMatch.scan_job_id == scan_job.id
     ).all()
-    
+
     match_results = [
         MatchResult(
             match_id=m.id,
@@ -150,11 +151,11 @@ def _build_scan_result(scan_job: ScanJob, db: Session) -> ScanResult:
         )
         for m in matches
     ]
-    
+
     risk_tier = scan_job.risk_tier or "unknown"
     if scan_job.status == "completed" and not matches:
         risk_tier = "clean"
-    
+
     return ScanResult(
         scan_id=scan_job.id,
         status=scan_job.status,
@@ -176,10 +177,10 @@ async def request_remediation(
     scan_job = db.query(ScanJob).filter(ScanJob.id == request.scan_id).first()
     if not scan_job:
         raise HTTPException(status_code=404, detail="Scan job not found")
-    
+
     if scan_job.status != "completed":
         raise HTTPException(status_code=400, detail="Scan must be completed first")
-    
+
     # Get the highest-risk match
     if request.match_id:
         match = db.query(ScanMatch).filter(
@@ -190,10 +191,10 @@ async def request_remediation(
         match = db.query(ScanMatch).filter(
             ScanMatch.scan_job_id == request.scan_id
         ).order_by(ScanMatch.similarity_score.desc()).first()
-    
+
     license_spdx = match.license_spdx if match else "Unknown"
     risk_tier = match.license_risk_tier if match else "unknown"
-    
+
     # Get remediation suggestion
     from app.remediation import get_remediation_suggestion
     suggestion = get_remediation_suggestion(
@@ -202,7 +203,7 @@ async def request_remediation(
         risk_tier=risk_tier,
         api_key=settings.openai_api_key or None
     )
-    
+
     # Save remediation
     remediation_id = str(uuid.uuid4())
     remediation = RemediationSuggestion(
@@ -216,7 +217,7 @@ async def request_remediation(
     )
     db.add(remediation)
     db.commit()
-    
+
     return RemediationResponse(
         remediation_id=remediation_id,
         scan_id=request.scan_id,
@@ -237,16 +238,19 @@ async def list_scans(
 ):
     """List scan jobs with optional filtering."""
     query = db.query(ScanJob)
-    
+
     if status:
         query = query.filter(ScanJob.status == status)
     if risk_tier:
         query = query.filter(ScanJob.risk_tier == risk_tier)
-    
+
     scan_jobs = query.order_by(ScanJob.created_at.desc()).offset(offset).limit(limit).all()
-    
+
     results = []
     for job in scan_jobs:
+        match_count = db.query(ScanMatch).filter(
+            ScanMatch.scan_job_id == job.id
+        ).count()
         results.append({
             "scan_id": job.id,
             "status": job.status,
@@ -254,8 +258,8 @@ async def list_scans(
             "language": job.language,
             "filename": job.filename,
             "risk_tier": job.risk_tier,
-            "match_count": len(job.matches),
+            "match_count": match_count,
             "created_at": job.created_at.isoformat() if job.created_at else None,
         })
-    
+
     return results
