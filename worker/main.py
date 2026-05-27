@@ -236,8 +236,10 @@ def _handle_resumes(
         result = runner.run_resumed(cancelled_md=cancelled_md)
         logger.info("Resume result for slug=%s: %s", slug, result)
 
-        processed_resumed.add(slug)
-        processed_fresh.add(slug)  # Prevent fresh handler from picking it up too
+        # Only add to processed_resumed if truly done — allow re-pickup for auto-resume
+        if result != "resuming":
+            processed_resumed.add(slug)
+        processed_fresh.add(slug)
 
 
 # ---------------------------------------------------------------------------
@@ -303,6 +305,11 @@ def _qualifies_for_step3(pb: ProblemBranch, github: GitHubClient) -> bool:
     problem_content = github.read_file(f"{pb.slug}/PROBLEM.md", pb.branch_name)
     if problem_content and " " not in problem_content[:100]:
         logger.warning("Skipping slug=%s — PROBLEM.md appears base64-encoded", pb.slug)
+        return False
+
+    # Skip branches already attempted (RESUME_COUNT exists)
+    if github._file_exists(f"{pb.slug}/RESUME_COUNT", pb.branch_name):
+        logger.debug("Skipping slug=%s — has RESUME_COUNT, already attempted", pb.slug)
         return False
 
     # Check for open blocker issue

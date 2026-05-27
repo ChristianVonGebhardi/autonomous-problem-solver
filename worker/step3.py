@@ -213,7 +213,9 @@ class Step3Runner:
         # Add cycle-resume label to trigger next poll
         try:
             issues = self.github.get_open_issues_for_slug(self.slug)
+            logger.info("[%s] Found %d issues for slug", self.slug, len(issues))
             for issue in issues:
+                logger.info("[%s] Checking issue: '%s'", self.slug, issue.title)
                 if issue.title.startswith(f"[CYCLE] {self.slug}"):
                     self.github.add_label_to_issue(issue, "cycle-resume")
                     logger.info("[%s] Added cycle-resume to Issue #%d for auto-resume (%d/%d)",
