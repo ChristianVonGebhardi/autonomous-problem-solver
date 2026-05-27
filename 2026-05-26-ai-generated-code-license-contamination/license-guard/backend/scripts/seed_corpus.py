@@ -7,10 +7,6 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.database import SessionLocal
-from app.routes.corpus import add_corpus_snippet
-from app.schemas import CorpusSnippetCreate
-
-import asyncio
 import logging
 
 logger = logging.getLogger(__name__)
@@ -95,7 +91,7 @@ htab_create (size_t size, htab_hash hash_f, htab_eq eq_f, htab_del del_f)
   return result;
 }"""
     },
-    
+
     # GPL-3.0 examples
     {
         "source_repo": "python/cpython",
@@ -129,7 +125,7 @@ def heapreplace(heap, item):
     _siftup(heap, 0)
     return returnitem"""
     },
-    
+
     # AGPL-3.0 examples
     {
         "source_repo": "mongodb/mongo",
@@ -161,12 +157,12 @@ public:
     }
 
     V& operator[](StringData key) { return _map[key.toString()]; }
-    
+
 private:
     MapType _map;
 };"""
     },
-    
+
     # LGPL examples
     {
         "source_repo": "gnu/glibc",
@@ -211,7 +207,7 @@ strncpy (char *s1, const char *s2, size_t n)
   return s;
 }"""
     },
-    
+
     # MPL-2.0 examples
     {
         "source_repo": "mozilla/firefox",
@@ -233,7 +229,7 @@ public:
     ~nsURIHashKey() { MOZ_COUNT_DTOR(nsURIHashKey); }
 
     nsIURI* GetKey() const { return mURI; }
-    
+
     bool KeyEquals(const nsIURI* aKey) const {
         bool eq;
         if (NS_FAILED(mURI->Equals(aKey, &eq))) {
@@ -257,7 +253,7 @@ private:
     nsCOMPtr<nsIURI> mURI;
 };"""
     },
-    
+
     # MIT License examples
     {
         "source_repo": "expressjs/express",
@@ -329,7 +325,7 @@ private:
   return debounced;
 }"""
     },
-    
+
     # Apache-2.0 examples
     {
         "source_repo": "apache/kafka",
@@ -372,8 +368,8 @@ private:
     return h;
 }"""
     },
-    
-    # BSD-3-Clause examples  
+
+    # BSD-3-Clause examples
     {
         "source_repo": "freebsd/freebsd",
         "source_file": "lib/libc/string/memmove.c",
@@ -415,7 +411,7 @@ memmove(void *dst, const void *src, size_t len)
     return (dst);
 }"""
     },
-    
+
     # Python binary search (classic algorithm - often AI-generated)
     {
         "source_repo": "python/cpython",
@@ -470,28 +466,28 @@ def bisect_left(a, x, lo=0, hi=None, *, key=None):
 def seed_database():
     """Seed the database with corpus snippets."""
     db = SessionLocal()
-    
+
     try:
         from app.models import CorpusSnippet
         existing = db.query(CorpusSnippet).count()
         if existing > 0:
             logger.info(f"Corpus already has {existing} snippets. Skipping seed.")
             return
-        
+
         logger.info(f"Seeding corpus with {len(CORPUS_DATA)} snippets...")
-        
+
         for i, data in enumerate(CORPUS_DATA):
             logger.info(f"Adding snippet {i+1}/{len(CORPUS_DATA)}: {data['source_repo']}/{data['source_file']}")
-            
+
             from app.detector import tokenize_code, compute_minhash, compute_embedding
             from app.license_taxonomy import classify_license
             import uuid
-            
+
             risk_tier, _ = classify_license(data['license_spdx'])
             tokens = tokenize_code(data['code_snippet'], data.get('language'))
             minhash = compute_minhash(tokens)
             embedding = compute_embedding(data['code_snippet'])
-            
+
             snippet = CorpusSnippet(
                 id=str(uuid.uuid4()),
                 source_repo=data['source_repo'],
@@ -505,10 +501,10 @@ def seed_database():
                 embedding=embedding,
             )
             db.add(snippet)
-        
+
         db.commit()
         logger.info(f"✅ Corpus seeded successfully with {len(CORPUS_DATA)} snippets")
-        
+
     except Exception as e:
         logger.error(f"Failed to seed corpus: {e}")
         db.rollback()
