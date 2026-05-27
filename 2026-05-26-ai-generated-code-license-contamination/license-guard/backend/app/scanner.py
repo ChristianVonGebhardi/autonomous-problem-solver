@@ -32,14 +32,14 @@ def find_corpus_matches(
     """
     matches = []
     seen_corpus_ids = set()
-    
+
     # Strategy 1: Exact hash match
     exact_matches = _find_exact_matches(analysis.code_hash, db)
     for match in exact_matches:
         if match['corpus_id'] not in seen_corpus_ids:
             seen_corpus_ids.add(match['corpus_id'])
             matches.append(match)
-    
+
     # Strategy 2: MinHash similarity
     if analysis.minhash:
         minhash_matches = _find_minhash_matches(analysis, db, threshold)
@@ -47,7 +47,7 @@ def find_corpus_matches(
             if match['corpus_id'] not in seen_corpus_ids:
                 seen_corpus_ids.add(match['corpus_id'])
                 matches.append(match)
-    
+
     # Strategy 3: Semantic embedding similarity
     if analysis.embedding:
         semantic_matches = _find_semantic_matches(analysis, db, threshold)
@@ -55,7 +55,7 @@ def find_corpus_matches(
             if match['corpus_id'] not in seen_corpus_ids:
                 seen_corpus_ids.add(match['corpus_id'])
                 matches.append(match)
-    
+
     # Sort by similarity score descending
     matches.sort(key=lambda x: x['similarity_score'], reverse=True)
     return matches[:10]  # Return top 10 matches
@@ -63,7 +63,6 @@ def find_corpus_matches(
 
 def _find_exact_matches(code_hash: str, db: Session) -> List[Dict[str, Any]]:
     """Find exact matches using code hash."""
-    # For MVP, we do a full scan - in production this would use an indexed hash column
     results = []
     try:
         from app.detector import compute_code_hash
@@ -93,11 +92,10 @@ def _find_minhash_matches(
     """Find near-duplicate matches using MinHash Jaccard similarity."""
     results = []
     try:
-        # Fetch corpus snippets with minhash signatures
         snippets = db.query(CorpusSnippet).filter(
             CorpusSnippet.minhash_signature.isnot(None)
         ).limit(500).all()
-        
+
         for snippet in snippets:
             if snippet.minhash_signature:
                 similarity = jaccard_similarity_from_minhash(
@@ -129,18 +127,19 @@ def _find_semantic_matches(
     try:
         # Try pgvector cosine search first
         try:
+            from pgvector.sqlalchemy import Vector
             from sqlalchemy import text
             embedding_str = '[' + ','.join(str(x) for x in analysis.embedding) + ']'
             sql = text("""
                 SELECT id, license_spdx, license_risk_tier, code_snippet, source_repo,
                        1 - (embedding <=> :embedding::vector) as similarity
-                FROM corpus_snippets 
+                FROM corpus_snippets
                 WHERE embedding IS NOT NULL
                 ORDER BY embedding <=> :embedding::vector
                 LIMIT 10
             """)
             rows = db.execute(sql, {"embedding": embedding_str}).fetchall()
-            
+
             for row in rows:
                 if row.similarity >= threshold:
                     results.append({
@@ -152,15 +151,22 @@ def _find_semantic_matches(
                         'matched_snippet': row.code_snippet,
                         'source_repo': row.source_repo,
                     })
-        except Exception:
+        except Exception as pgvector_err:
+            logger.debug(f"pgvector query failed, falling back to manual cosine: {pgvector_err}")
             # Fallback: manual cosine similarity
             snippets = db.query(CorpusSnippet).filter(
                 CorpusSnippet.embedding.isnot(None)
             ).limit(200).all()
-            
+
             for snippet in snippets:
-                if snippet.embedding:
-                    sim = cosine_similarity(analysis.embedding, list(snippet.embedding))
+                if snippet.embedding is not None:
+                    emb = snippet.embedding
+                    if not isinstance(emb, list):
+                        try:
+                            emb = list(emb)
+                        except Exception:
+                            continue
+                    sim = cosine_similarity(analysis.embedding, emb)
                     if sim >= threshold:
                         results.append({
                             'corpus_id': snippet.id,
@@ -182,34 +188,34 @@ def process_scan_job(scan_job_id: str, database_url: str) -> Dict[str, Any]:
     """
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
-    
+
     engine = create_engine(database_url, pool_pre_ping=True)
-    Session = sessionmaker(bind=engine)
-    db = Session()
-    
+    SessionFactory = sessionmaker(bind=engine)
+    db = SessionFactory()
+
     try:
         # Fetch scan job
         scan_job = db.query(ScanJob).filter(ScanJob.id == scan_job_id).first()
         if not scan_job:
             logger.error(f"Scan job not found: {scan_job_id}")
             return {"error": "Scan job not found"}
-        
+
         # Update status
         scan_job.status = "processing"
         db.commit()
-        
+
         logger.info(f"Processing scan job: {scan_job_id}")
-        
+
         # Analyze code
         analysis = CodeAnalysis(scan_job.code_snippet, scan_job.language)
-        
+
         # Find corpus matches
         matches = find_corpus_matches(
             analysis,
             db,
             threshold=settings.similarity_threshold
         )
-        
+
         # Save matches to DB
         db_matches = []
         for match_data in matches:
@@ -226,11 +232,11 @@ def process_scan_job(scan_job_id: str, database_url: str) -> Dict[str, Any]:
             )
             db.add(match)
             db_matches.append(match)
-        
+
         # Determine overall risk tier
         risk_tiers = [m['license_risk_tier'] for m in matches]
         overall_tier = get_highest_risk_tier(risk_tiers) if risk_tiers else "clean"
-        
+
         # Build result
         result = {
             "matches": [
@@ -253,28 +259,27 @@ def process_scan_job(scan_job_id: str, database_url: str) -> Dict[str, Any]:
                 "semantic": analysis.embedding is not None,
             }
         }
-        
+
         # Update scan job
         scan_job.status = "completed"
         scan_job.risk_tier = overall_tier
         scan_job.result = result
         scan_job.completed_at = datetime.now(timezone.utc)
         db.commit()
-        
+
         logger.info(f"Scan completed: {scan_job_id}, risk_tier={overall_tier}, matches={len(matches)}")
         return result
-        
+
     except Exception as e:
         logger.error(f"Scan job failed: {scan_job_id}, error: {e}")
-        if db:
-            try:
-                scan_job = db.query(ScanJob).filter(ScanJob.id == scan_job_id).first()
-                if scan_job:
-                    scan_job.status = "failed"
-                    scan_job.result = {"error": str(e)}
-                    db.commit()
-            except Exception:
-                pass
+        try:
+            scan_job = db.query(ScanJob).filter(ScanJob.id == scan_job_id).first()
+            if scan_job:
+                scan_job.status = "failed"
+                scan_job.result = {"error": str(e)}
+                db.commit()
+        except Exception:
+            pass
         raise
     finally:
         db.close()
