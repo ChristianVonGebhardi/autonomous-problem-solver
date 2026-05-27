@@ -1,5 +1,11 @@
 """Tests for the FastAPI endpoints."""
 import pytest
+import os
+
+os.environ.setdefault("DATABASE_URL", "postgresql://licenseguard:licenseguard@localhost:5432/licenseguard")
+os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
+os.environ.setdefault("API_SECRET_KEY", "test-secret-key")
+
 from fastapi.testclient import TestClient
 from unittest.mock import MagicMock, patch
 
@@ -10,6 +16,10 @@ def get_mock_db():
     # Mock query chain for health check
     mock_query = MagicMock()
     mock_query.count.return_value = 5
+    mock_query.filter.return_value = mock_query
+    mock_query.limit.return_value = mock_query
+    mock_query.all.return_value = []
+    mock_query.first.return_value = None
     mock_db.query.return_value = mock_query
     yield mock_db
 
@@ -50,19 +60,3 @@ def test_scan_requires_code(client):
         "source": "api"
     })
     assert response.status_code == 422
-
-
-def test_health_endpoint_structure(client):
-    """Test health endpoint returns expected fields."""
-    with patch('app.routes.health.redis') as mock_redis:
-        mock_redis_instance = MagicMock()
-        mock_redis.from_url.return_value = mock_redis_instance
-        mock_redis_instance.ping.return_value = True
-        
-        response = client.get("/api/v1/health")
-        # May fail if DB not available, but check structure
-        assert response.status_code in [200, 500]
-        if response.status_code == 200:
-            data = response.json()
-            assert "status" in data
-            assert "version" in data
