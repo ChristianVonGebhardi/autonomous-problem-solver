@@ -6,6 +6,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSONB, ARRAY
 from sqlalchemy.orm import DeclarativeBase, relationship
+
 try:
     from pgvector.sqlalchemy import Vector
     PGVECTOR_AVAILABLE = True
@@ -23,7 +24,7 @@ def gen_uuid():
 
 class CorpusSnippet(Base):
     __tablename__ = "corpus_snippets"
-    
+
     id = Column(String(36), primary_key=True, default=gen_uuid)
     source_repo = Column(String(500), nullable=False)
     source_file = Column(String(500), nullable=False)
@@ -35,13 +36,15 @@ class CorpusSnippet(Base):
     minhash_signature = Column(ARRAY(Integer()), nullable=True)
     if PGVECTOR_AVAILABLE:
         embedding = Column(Vector(384), nullable=True)
+    else:
+        embedding = Column(JSONB(), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
 class ScanJob(Base):
     __tablename__ = "scan_jobs"
-    
+
     id = Column(String(36), primary_key=True, default=gen_uuid)
     status = Column(String(20), nullable=False, default='pending')
     source = Column(String(50), nullable=False)  # ai_assistant, pre_commit, ci_cd
@@ -53,14 +56,16 @@ class ScanJob(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     completed_at = Column(DateTime(timezone=True), nullable=True)
     metadata_ = Column("metadata", JSONB(), nullable=True)
-    
-    matches = relationship("ScanMatch", back_populates="scan_job", cascade="all, delete-orphan")
-    remediations = relationship("RemediationSuggestion", back_populates="scan_job", cascade="all, delete-orphan")
+
+    matches = relationship("ScanMatch", back_populates="scan_job",
+                           cascade="all, delete-orphan", lazy="select")
+    remediations = relationship("RemediationSuggestion", back_populates="scan_job",
+                                cascade="all, delete-orphan", lazy="select")
 
 
 class ScanMatch(Base):
     __tablename__ = "scan_matches"
-    
+
     id = Column(String(36), primary_key=True, default=gen_uuid)
     scan_job_id = Column(String(36), ForeignKey('scan_jobs.id', ondelete='CASCADE'), nullable=False)
     corpus_snippet_id = Column(String(36), ForeignKey('corpus_snippets.id', ondelete='SET NULL'), nullable=True)
@@ -71,14 +76,14 @@ class ScanMatch(Base):
     matched_snippet = Column(Text(), nullable=True)
     source_repo = Column(String(500), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    
+
     scan_job = relationship("ScanJob", back_populates="matches")
     remediations = relationship("RemediationSuggestion", back_populates="match")
 
 
 class RemediationSuggestion(Base):
     __tablename__ = "remediation_suggestions"
-    
+
     id = Column(String(36), primary_key=True, default=gen_uuid)
     scan_job_id = Column(String(36), ForeignKey('scan_jobs.id', ondelete='CASCADE'), nullable=False)
     match_id = Column(String(36), ForeignKey('scan_matches.id', ondelete='CASCADE'), nullable=True)
@@ -87,6 +92,6 @@ class RemediationSuggestion(Base):
     explanation = Column(Text(), nullable=True)
     status = Column(String(20), nullable=False, default='pending')
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    
+
     scan_job = relationship("ScanJob", back_populates="remediations")
     match = relationship("ScanMatch", back_populates="remediations")
