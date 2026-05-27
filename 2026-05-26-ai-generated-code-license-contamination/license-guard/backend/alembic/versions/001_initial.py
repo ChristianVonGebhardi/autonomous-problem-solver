@@ -31,17 +31,16 @@ def upgrade() -> None:
         sa.Column('code_snippet', sa.Text(), nullable=False),
         sa.Column('ast_tokens', postgresql.JSONB(), nullable=True),
         sa.Column('minhash_signature', postgresql.ARRAY(sa.Integer()), nullable=True),
-        sa.Column('embedding', sa.Text(), nullable=True),  # stored as JSON text, overridden by pgvector if available
+        sa.Column('embedding', postgresql.JSONB(), nullable=True),
         sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('NOW()')),
         sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('NOW()')),
     )
 
-    # Try to add vector column via raw SQL (pgvector must be enabled)
+    # Try to convert embedding column to vector type
     try:
-        op.execute('ALTER TABLE corpus_snippets DROP COLUMN IF EXISTS embedding')
-        op.execute('ALTER TABLE corpus_snippets ADD COLUMN embedding vector(384)')
+        op.execute('ALTER TABLE corpus_snippets ALTER COLUMN embedding TYPE vector(384) USING NULL::vector(384)')
     except Exception:
-        # pgvector not available, keep the text column
+        # pgvector not available or conversion not supported — keep as JSONB
         pass
 
     # Create scan_jobs table
@@ -98,6 +97,15 @@ def upgrade() -> None:
     op.create_index('idx_scan_matches_scan_job_id', 'scan_matches', ['scan_job_id'])
     op.create_index('idx_corpus_language', 'corpus_snippets', ['language'])
     op.create_index('idx_corpus_license', 'corpus_snippets', ['license_spdx'])
+
+    # Create pgvector index for fast similarity search
+    try:
+        op.execute("""
+            CREATE INDEX idx_corpus_embedding ON corpus_snippets 
+            USING ivfflat (embedding vector_cosine_ops) WITH (lists = 10)
+        """)
+    except Exception:
+        pass  # pgvector index not available
 
 
 def downgrade() -> None:
