@@ -23,17 +23,20 @@ async def health_check(db: Session = Depends(get_db)):
         corpus_size = db.query(CorpusSnippet).count()
     except Exception as e:
         db_status = f"error: {str(e)[:50]}"
-    
+
     # Check Redis
     redis_status = "ok"
     try:
         r = redis.from_url(settings.redis_url)
         r.ping()
+        r.close()
     except Exception as e:
         redis_status = f"error: {str(e)[:50]}"
-    
+
+    overall = "ok" if db_status == "ok" and redis_status == "ok" else "degraded"
+
     return HealthResponse(
-        status="ok" if db_status == "ok" and redis_status == "ok" else "degraded",
+        status=overall,
         version="1.0.0",
         database=db_status,
         redis=redis_status,
