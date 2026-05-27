@@ -31,3 +31,7 @@ class Settings(BaseSettings):
         return [origin.strip() for origin in self.cors_origins.split(",")]
 
     model_config = {"env_file": ".env", "case_sensitive": False, "extra": "ignore"}
+
+
+# Global settings instance
+settings = Settings()
