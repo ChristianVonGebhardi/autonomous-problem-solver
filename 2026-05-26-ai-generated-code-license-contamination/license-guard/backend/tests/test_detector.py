@@ -1,5 +1,11 @@
 """Tests for the code detection engine."""
+import os
 import pytest
+
+os.environ.setdefault("DATABASE_URL", "postgresql://licenseguard:licenseguard@localhost:5432/licenseguard")
+os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
+os.environ.setdefault("API_SECRET_KEY", "test-secret-key")
+
 from app.detector import (
     tokenize_code,
     compute_minhash,
