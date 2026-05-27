@@ -16,12 +16,12 @@ router = APIRouter()
 @router.get("/dashboard/stats", response_model=DashboardStats)
 async def get_dashboard_stats(db: Session = Depends(get_db)):
     """Get dashboard statistics for compliance overview."""
-    
+
     # Total scans
     total_scans = db.query(func.count(ScanJob.id)).filter(
         ScanJob.status == "completed"
     ).scalar() or 0
-    
+
     # Risk tier counts
     tier_counts = db.query(
         ScanJob.risk_tier,
@@ -29,9 +29,9 @@ async def get_dashboard_stats(db: Session = Depends(get_db)):
     ).filter(
         ScanJob.status == "completed"
     ).group_by(ScanJob.risk_tier).all()
-    
+
     tier_map = {t: c for t, c in tier_counts}
-    
+
     # Top licenses found
     top_licenses = db.query(
         ScanMatch.license_spdx,
@@ -41,32 +41,34 @@ async def get_dashboard_stats(db: Session = Depends(get_db)):
         ScanMatch.license_spdx,
         ScanMatch.license_risk_tier
     ).order_by(desc('count')).limit(10).all()
-    
+
     # Recent scans
     recent_jobs = db.query(ScanJob).filter(
         ScanJob.status == "completed"
     ).order_by(desc(ScanJob.created_at)).limit(10).all()
-    
-    recent_scans = [
-        {
+
+    recent_scans = []
+    for job in recent_jobs:
+        match_count = db.query(func.count(ScanMatch.id)).filter(
+            ScanMatch.scan_job_id == job.id
+        ).scalar() or 0
+        recent_scans.append({
             "scan_id": job.id,
             "filename": job.filename or "unknown",
             "language": job.language or "unknown",
             "risk_tier": job.risk_tier or "clean",
             "source": job.source,
             "created_at": job.created_at.isoformat() if job.created_at else None,
-            "match_count": len(job.matches),
-        }
-        for job in recent_jobs
-    ]
-    
+            "match_count": match_count,
+        })
+
     # Risk trend (last 7 days)
     risk_trend = []
     for days_ago in range(6, -1, -1):
         date = datetime.now(timezone.utc) - timedelta(days=days_ago)
         day_start = date.replace(hour=0, minute=0, second=0, microsecond=0)
         day_end = day_start + timedelta(days=1)
-        
+
         day_counts = db.query(
             ScanJob.risk_tier,
             func.count(ScanJob.id)
@@ -75,7 +77,7 @@ async def get_dashboard_stats(db: Session = Depends(get_db)):
             ScanJob.created_at >= day_start,
             ScanJob.created_at < day_end,
         ).group_by(ScanJob.risk_tier).all()
-        
+
         day_data = {
             "date": day_start.strftime("%Y-%m-%d"),
             "high": 0, "medium": 0, "low": 0, "clean": 0, "unknown": 0
@@ -84,7 +86,7 @@ async def get_dashboard_stats(db: Session = Depends(get_db)):
             if tier in day_data:
                 day_data[tier] = count
         risk_trend.append(day_data)
-    
+
     return DashboardStats(
         total_scans=total_scans,
         high_risk_count=tier_map.get("high", 0),
