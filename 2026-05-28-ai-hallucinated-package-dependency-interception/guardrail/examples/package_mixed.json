@@ -1,0 +1,20 @@
+{
+  "name": "example-app",
+  "version": "1.0.0",
+  "description": "Example package.json with mixed legitimate and suspicious packages",
+  "dependencies": {
+    "express": "^4.18.0",
+    "lodash": "^4.17.21",
+    "axios": "^1.6.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "jest": "^29.0.0",
+    "typescript": "^5.0.0",
+    "eslint": "^8.0.0",
+    "express-middleware-validator-helper": "^1.0.0",
+    "lodsh": "^4.17.21",
+    "react-ai-components-toolkit": "^0.1.0"
+  }
+}
