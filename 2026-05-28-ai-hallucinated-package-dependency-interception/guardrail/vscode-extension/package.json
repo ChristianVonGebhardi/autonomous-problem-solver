@@ -1,0 +1,112 @@
+{
+  "name": "guardrail-vscode",
+  "displayName": "GuardRail — AI Package Hallucination Detector",
+  "description": "Real-time detection of AI-hallucinated package dependencies. Warns before you accept dangerous imports.",
+  "version": "0.1.0",
+  "publisher": "guardrail-dev",
+  "icon": "images/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/guardrail-dev/guardrail"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Linters",
+    "Other"
+  ],
+  "keywords": [
+    "security",
+    "supply-chain",
+    "dependencies",
+    "ai",
+    "hallucination",
+    "slopsquatting"
+  ],
+  "activationEvents": [
+    "onLanguage:python",
+    "onLanguage:javascript",
+    "onLanguage:typescript",
+    "onLanguage:json",
+    "workspaceContains:requirements.txt",
+    "workspaceContains:package.json",
+    "workspaceContains:Cargo.toml"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "guardrail.scanManifest",
+        "title": "GuardRail: Scan Current Manifest",
+        "icon": "$(shield)"
+      },
+      {
+        "command": "guardrail.checkPackage",
+        "title": "GuardRail: Check Package Under Cursor"
+      },
+      {
+        "command": "guardrail.clearCache",
+        "title": "GuardRail: Clear Cache"
+      }
+    ],
+    "configuration": {
+      "title": "GuardRail",
+      "properties": {
+        "guardrail.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable GuardRail real-time scanning"
+        },
+        "guardrail.guardrailPath": {
+          "type": "string",
+          "default": "guardrail",
+          "description": "Path to the guardrail CLI binary"
+        },
+        "guardrail.scanOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically scan manifest files on save"
+        },
+        "guardrail.failLevel": {
+          "type": "string",
+          "enum": ["warn", "block", "never"],
+          "default": "block",
+          "description": "Which risk level triggers an error diagnostic (vs. warning)"
+        },
+        "guardrail.policyServer": {
+          "type": "string",
+          "default": "",
+          "description": "Optional policy server URL (e.g. http://localhost:8080)"
+        },
+        "guardrail.showInlineHints": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show inline code lens hints for flagged packages"
+        }
+      }
+    },
+    "menus": {
+      "editor/title": [
+        {
+          "command": "guardrail.scanManifest",
+          "when": "resourceFilename == requirements.txt || resourceFilename == package.json || resourceFilename == Cargo.toml",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.3.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0"
+  }
+}
