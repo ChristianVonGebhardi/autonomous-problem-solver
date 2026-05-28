@@ -1,0 +1,21 @@
+# Example requirements.txt with a mix of legitimate and suspicious packages
+# GuardRail should flag the hallucinated packages
+
+# Legitimate, well-known packages
+requests==2.31.0
+numpy>=1.24.0
+flask>=3.0.0
+click>=8.1.7
+pydantic>=2.0.0
+
+# Suspicious: doesn't exist on PyPI (AI-hallucinated)
+numpy-dataframe-utils>=1.0.0
+
+# Suspicious: typosquat (close to "requests")
+reqests==2.31.0
+
+# Suspicious: AI-generated compound name
+python-llm-response-parser>=0.1.0
+
+# Suspicious: "ai-" prefix utility name
+ai-code-executor>=1.0.0
