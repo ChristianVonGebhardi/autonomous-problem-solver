@@ -1,68 +1,33 @@
-# GuardRail — AI-Hallucinated Package Dependency Interception
+# GuardRail — AI Package Hallucination Interception
 
-GuardRail is a multi-layer supply-chain interception platform that validates AI-generated package dependencies at three enforcement points:
-1. **CLI Scanner** — scan manifest files before committing
-2. **Package Manager Shims** — intercept `pip install` / `npm install` before execution
-3. **CI/CD Gate** — GitHub Actions integration for PR/push validation
-4. **Policy Server** — centralized allow/block lists and risk thresholds
+GuardRail validates AI-generated package dependencies against live registries, heuristics, and reputation data to prevent slopsquatting supply-chain attacks.
 
-## Architecture
+## What It Does
 
-```
-guardrail/
-├── core/               # Core validation engine (Python)
-│   ├── validator.py    # Orchestrates all checks
-│   ├── registry.py     # Live registry existence checks
-│   ├── heuristics.py   # Slopsquatting heuristic scoring
-│   ├── reputation.py   # Package reputation scoring
-│   └── cache.py        # SQLite cache (15-min TTL)
-├── cli/                # CLI tool (guardrail scan)
-│   └── main.py
-├── shims/              # Package manager shim wrappers
-│   ├── pip_shim.py
-│   └── npm_shim.py
-├── policy_server/      # Go policy server
-│   ├── main.go
-│   ├── go.mod
-│   └── go.sum
-├── vscode_extension/   # VS Code extension skeleton
-│   ├── package.json
-│   └── src/extension.ts
-├── github_action/      # GitHub Actions action definition
-│   └── action.yml
-├── tests/              # Test suite
-│   └── test_validator.py
-├── requirements.txt
-└── setup.py
-```
+- **Registry Check**: Queries PyPI, npm, crates.io, Go module proxy, and Maven Central to verify packages exist
+- **Heuristic Analysis**: Detects AI-hallucinated naming patterns using edit-distance, phonetic similarity, and structural analysis
+- **Reputation Scoring**: Evaluates download counts, publish dates, and maintainer signals
+- **CI/CD Gate**: GitHub Actions integration that blocks PRs introducing suspicious dependencies
+- **Package Manager Shims**: Wraps `pip` and `npm` to intercept installs before they execute
 
 ## Quick Start
 
 ### Prerequisites
+
 - Python 3.9+
 - pip
-- (Optional) Go 1.21+ for policy server
-- (Optional) Node.js 18+ for VS Code extension
 
 ### Installation
 
 ```bash
-# Clone the repo
-git clone https://github.com/your-org/guardrail
 cd guardrail
-
-# Install Python dependencies
-pip install -r requirements.txt
-
-# Install GuardRail CLI
 pip install -e .
 ```
 
-### Basic Usage
+### Scan a manifest file
 
-#### Scan a manifest file
 ```bash
-# Scan requirements.txt
+# Scan a requirements.txt
 guardrail scan requirements.txt
 
 # Scan package.json
@@ -71,102 +36,165 @@ guardrail scan package.json
 # Scan with JSON output
 guardrail scan requirements.txt --format json
 
-# Scan with strict mode (exit 1 on any warning)
-guardrail scan requirements.txt --strict
-
-# Scan with policy server
-guardrail scan requirements.txt --policy-server http://localhost:8080
+# Scan with SARIF output (for GitHub Code Scanning)
+guardrail scan requirements.txt --format sarif --output results.sarif
 ```
 
-#### Scan a single package name
+### Check a single package
+
 ```bash
-guardrail check numpy --ecosystem pypi
-guardrail check react --ecosystem npm
-guardrail check lodahs --ecosystem npm   # typosquat of lodash
+# Check if a PyPI package is safe
+guardrail check requests --ecosystem pypi
+
+# Check an npm package
+guardrail check lodash --ecosystem npm
+
+# Check a suspicious package
+guardrail check numpy-helper-utils --ecosystem pypi
 ```
 
-#### Install shims (intercept pip/npm)
+### Install package manager shims
+
 ```bash
 # Install pip shim
 guardrail install-shim pip
 
-# Install npm shim  
-guardrail install-shim npm
+# Add to PATH (add to ~/.bashrc or ~/.zshrc)
+export PATH="$HOME/.guardrail/shims:$PATH"
 
-# Now any pip install will be intercepted:
-pip install some-ai-hallucinated-package  # → blocked with warning
+# Now all pip install commands are intercepted
+pip install some-package  # GuardRail validates before installing
 ```
 
-### Policy Server
+## Output Formats
 
+### Table (default)
+```
+╭─────────────────────────────────────────────────────────────────╮
+│ GuardRail Scan: requirements.txt                                │
+├────────────────────┬──────────┬───────────┬───────┬────────────┤
+│ Package            │ Ecosys.  │ Risk      │ Score │ Exists     │
+├────────────────────┼──────────┼───────────┼───────┼────────────┤
+│ requests           │ pypi     │ ✓ LOW     │ 0.05  │ ✓          │
+│ numpy-helper-utils │ pypi     │ ✗ CRITICAL│ 0.92  │ ✗          │
+╰────────────────────┴──────────┴───────────┴───────┴────────────╯
+```
+
+### JSON
+```json
+{
+  "manifest_path": "requirements.txt",
+  "ecosystem": "pypi",
+  "summary": {"total": 5, "blocked": 1, "warned": 1, "clean": 3},
+  "results": [...]
+}
+```
+
+### SARIF (for GitHub Code Scanning upload)
 ```bash
-# Start policy server (default port 8080)
-cd policy_server
-go run main.go
-
-# Or with Docker
-docker build -t guardrail-policy .
-docker run -p 8080:8080 guardrail-policy
-
-# Add to allow list
-curl -X POST http://localhost:8080/api/v1/allowlist \
-  -H "Content-Type: application/json" \
-  -d '{"package": "my-internal-pkg", "ecosystem": "pypi"}'
-
-# Set risk threshold
-curl -X PUT http://localhost:8080/api/v1/policy \
-  -H "Content-Type: application/json" \
-  -d '{"max_risk_score": 0.7, "block_on_not_found": true}'
+guardrail scan requirements.txt --format sarif --output guardrail.sarif
 ```
 
-### CI/CD Integration
+## CI/CD Integration
 
-#### GitHub Actions
+### GitHub Actions
+
 ```yaml
-- name: GuardRail Dependency Scan
-  uses: your-org/guardrail@v1
-  with:
-    manifest: requirements.txt
-    strict: true
-    fail-on: warn  # or 'block'
+# .github/workflows/guardrail.yml
+name: GuardRail Dependency Scan
+on: [push, pull_request]
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install GuardRail
+        run: pip install guardrail-cli
+      - name: Scan dependencies
+        run: guardrail scan requirements.txt --format sarif --output guardrail.sarif
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: guardrail.sarif
 ```
 
-#### Generic CI
+### Generic CI (fail on blocked packages)
+
 ```bash
-guardrail scan requirements.txt --format sarif > guardrail-report.sarif
-guardrail scan package.json --format json --strict
+guardrail scan requirements.txt --fail-on block
 ```
 
-## Scoring Explained
+Exit codes:
+- `0` — all packages clean (or only warnings with `--fail-on block`)
+- `1` — blocked packages found (or warnings with `--fail-on warn`)
+- `2` — configuration error
 
-Each package receives a **risk score** from 0.0 (safe) to 1.0 (high risk):
+## Configuration
 
-| Score | Level | Action |
-|-------|-------|--------|
-| 0.0 – 0.3 | LOW | Allow |
-| 0.3 – 0.6 | MEDIUM | Warn |
-| 0.6 – 0.8 | HIGH | Warn + remediation |
-| 0.8 – 1.0 | CRITICAL | Block |
-
-### Risk Factors
-- **Registry Existence** (40%): Does the package exist on the registry?
-- **Reputation** (30%): Download count, age, maintainer count
-- **Heuristics** (30%): Edit distance to known packages, AI naming pattern detection
-
-## Environment Variables
+### Environment Variables
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `GUARDRAIL_POLICY_SERVER` | Policy server URL | (none) |
-| `GUARDRAIL_CACHE_TTL` | Cache TTL in seconds | 900 |
 | `GUARDRAIL_CACHE_DB` | SQLite cache path | `~/.guardrail/cache.db` |
-| `GUARDRAIL_STRICT` | Fail on warnings | false |
-| `GUARDRAIL_LOG_LEVEL` | Log level | INFO |
+| `GUARDRAIL_CACHE_TTL` | Cache TTL in seconds | `900` (15 min) |
+| `GUARDRAIL_POLICY_SERVER` | Policy server URL | (none) |
+
+### Policy Server (Optional)
+
+For team-level allow/block lists:
+
+```bash
+# Start the policy server
+cd policy_server
+go build -o guardrail-policy .
+./guardrail-policy --port 8080
+
+# Use with scanner
+guardrail scan requirements.txt --policy-server http://localhost:8080
+```
+
+## Risk Levels
+
+| Level | Score | Meaning |
+|-------|-------|---------|
+| LOW | < 0.30 | Package appears legitimate |
+| MEDIUM | 0.30–0.59 | Some concerns, review recommended |
+| HIGH | 0.60–0.79 | Significant red flags |
+| CRITICAL | ≥ 0.80 | Block installation — likely hallucinated or malicious |
 
 ## Running Tests
 
 ```bash
+cd guardrail
+pip install -e ".[dev]"
 pytest tests/ -v
+
 # With coverage
-pytest tests/ -v --cov=core --cov-report=html
+pytest tests/ --cov=core --cov-report=html
 ```
+
+## Architecture
+
+```
+guardrail/
+├── cli/           # Click CLI entry points
+├── core/          # Validation engine
+│   ├── validator.py    # Orchestrator (parallel checks)
+│   ├── registry.py     # Registry API clients
+│   ├── heuristics.py   # AI naming pattern detection
+│   ├── reputation.py   # Download/age/maintainer scoring
+│   ├── cache.py        # SQLite TTL cache
+│   ├── parsers.py      # Manifest file parsers
+│   └── models.py       # Data models
+├── tests/         # pytest test suite
+└── policy_server/ # Optional Go policy server
+```
+
+## License
+
+MIT
