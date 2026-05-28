@@ -1,0 +1,174 @@
+name: GuardRail Dependency Scan
+
+on:
+  push:
+    branches: [main, master, develop]
+    paths:
+      - 'requirements*.txt'
+      - 'package.json'
+      - 'Cargo.toml'
+      - 'go.mod'
+      - 'pyproject.toml'
+  pull_request:
+    paths:
+      - 'requirements*.txt'
+      - 'package.json'
+      - 'Cargo.toml'
+      - 'go.mod'
+      - 'pyproject.toml'
+
+jobs:
+  guardrail-scan:
+    name: Scan Dependencies
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write   # For SARIF upload
+      pull-requests: write     # For PR comments
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install GuardRail
+        run: |
+          pip install guardrail-cli
+          # Or from source:
+          # pip install -e ./guardrail
+
+      - name: Scan requirements.txt
+        if: hashFiles('requirements.txt') != ''
+        run: |
+          guardrail scan requirements.txt \
+            --format sarif \
+            --output guardrail-python.sarif \
+            --fail-on block
+        continue-on-error: true
+
+      - name: Scan package.json
+        if: hashFiles('package.json') != ''
+        run: |
+          guardrail scan package.json \
+            --format sarif \
+            --output guardrail-npm.sarif \
+            --fail-on block
+        continue-on-error: true
+
+      - name: Scan Cargo.toml
+        if: hashFiles('Cargo.toml') != ''
+        run: |
+          guardrail scan Cargo.toml \
+            --format sarif \
+            --output guardrail-cargo.sarif \
+            --fail-on block
+        continue-on-error: true
+
+      - name: Upload Python SARIF
+        if: hashFiles('guardrail-python.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: guardrail-python.sarif
+          category: guardrail-python
+
+      - name: Upload npm SARIF
+        if: hashFiles('guardrail-npm.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: guardrail-npm.sarif
+          category: guardrail-npm
+
+      - name: Upload Cargo SARIF
+        if: hashFiles('guardrail-cargo.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: guardrail-cargo.sarif
+          category: guardrail-cargo
+
+      - name: Post PR Summary
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const { execSync } = require('child_process');
+            
+            let summary = '';
+            const manifests = ['requirements.txt', 'package.json', 'Cargo.toml', 'go.mod'];
+            
+            for (const manifest of manifests) {
+              try {
+                if (!fs.existsSync(manifest)) continue;
+                const result = execSync(
+                  `guardrail scan ${manifest} --format json`,
+                  { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }
+                );
+                const data = JSON.parse(result);
+                const s = data.summary;
+                
+                if (s.blocked > 0 || s.warned > 0) {
+                  summary += `### ⚠️ ${manifest}\n`;
+                  summary += `- 🔴 Blocked: ${s.blocked}\n`;
+                  summary += `- 🟡 Warnings: ${s.warned}\n`;
+                  summary += `- 🟢 Clean: ${s.clean}\n\n`;
+                  
+                  for (const r of data.results) {
+                    if (r.risk_level !== 'LOW') {
+                      summary += `**${r.package_name}** (${r.risk_level}, score: ${r.risk_score})\n`;
+                      if (r.remediation) summary += `> ${r.remediation}\n`;
+                      summary += '\n';
+                    }
+                  }
+                }
+              } catch (e) {
+                // Ignore errors for individual manifests
+              }
+            }
+            
+            if (!summary) {
+              summary = '✅ All dependencies passed GuardRail validation.';
+            }
+            
+            const body = `## 🛡️ GuardRail Dependency Scan\n\n${summary}\n\n*Powered by [GuardRail](https://github.com/guardrail-dev/guardrail)*`;
+            
+            try {
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body
+              });
+            } catch (e) {
+              console.log('Could not post PR comment:', e.message);
+            }
+
+      - name: Fail on blocked packages
+        run: |
+          BLOCKED=0
+          for sarif in guardrail-*.sarif; do
+            [ -f "$sarif" ] || continue
+            errors=$(python3 -c "
+          import json, sys
+          data = json.load(open('$sarif'))
+          errors = sum(
+              1 for run in data['runs']
+              for r in run['results']
+              if r.get('level') == 'error'
+          )
+          print(errors)
+          " 2>/dev/null || echo 0)
+            if [ "$errors" -gt "0" ]; then
+              echo "❌ Found $errors CRITICAL package(s) in $sarif"
+              BLOCKED=1
+            fi
+          done
+          if [ "$BLOCKED" = "1" ]; then
+            echo "GuardRail scan FAILED — review blocked packages above"
+            exit 1
+          fi
+          echo "✅ GuardRail scan passed"
