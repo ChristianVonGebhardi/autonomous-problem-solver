@@ -22,6 +22,14 @@ setup(
         "tomli>=2.0.1; python_version < '3.11'",
         "jsonschema>=4.21.1",
     ],
+    extras_require={
+        "dev": [
+            "pytest>=8.0.0",
+            "pytest-asyncio>=0.23.0",
+            "pytest-cov>=4.1.0",
+            "respx>=0.21.0",
+        ]
+    },
     entry_points={
         "console_scripts": [
             "guardrail=cli.main:cli",
