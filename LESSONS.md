@@ -77,17 +77,6 @@ long PROBLEM.md and Step 2 immediately consumes it along with the full system pr
 The SDK retries with exponential backoff and recovers, but consider increasing the delay
 to 180s if rate limit retries become frequent.
 
-### GitHub Actions logs are in UTC
-The scheduler fires at 00:00 UTC. Local time offsets (e.g. UTC-6 for CST, UTC-8 for PST)
-mean the workflow appears to run at 6 PM or 8 PM local time the previous day. Always
-cross-reference logs in UTC to avoid confusion when correlating Actions and Railway timestamps.
-
-### Closing an issue via commit message is an intent, not a validation
-`closes #N` in a commit message closes the issue the moment the commit is pushed to the
-default branch — before any runtime validation. For bugs that require Railway deployment to
-validate (streaming, auto-resume, Claude API behaviour), omit the closing keyword, validate
-on Railway, then close manually with a comment linking the commit hash.
-
 ---
 
 ## Railway Worker Operations
@@ -164,17 +153,6 @@ from an unrelated directory like `Downloads`.
 ---
 
 ## Process & Workflow
-
-### Validate before closing issues
-Do not use `closes #N` in commit messages for bugs that require runtime validation on
-Railway. Push the fix, deploy, observe the logs, then close manually with a comment linking
-the commit. This keeps the issue tracker honest — a closed issue means the fix was confirmed
-working, not just pushed.
-
-### Dedicated commits per issue
-One commit per issue fix makes `git log` a useful audit trail and simplifies bisection if a
-regression appears. Use the issue number in the commit message body even when not using the
-`closes` keyword: `fix: increase Step 3 max_tokens to 32768 — related to #29`.
 
 ### Bulk validation saves API credits
 Group prompt engineering fixes (Step 1 and Step 2 system prompt changes) into one GitHub
