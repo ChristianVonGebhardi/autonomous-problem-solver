@@ -2,6 +2,7 @@
 Quality Scorer — runs configurable evaluators on LLM outputs.
 """
 import re
+import json
 import hashlib
 import numpy as np
 import structlog
@@ -46,7 +47,7 @@ class QualityScorer:
         results.extend(self._score_format(output_text, request_payload))
 
         # 2. Embedding similarity vs golden references
-        if settings.use_embeddings:
+        if settings.use_embeddings and settings.openai_api_key:
             results.extend(
                 self._score_embedding_similarity(template_id, output_text, request_payload)
             )
@@ -150,7 +151,7 @@ class QualityScorer:
             return []
 
         max_sim = max(similarities)
-        mean_sim = np.mean(similarities)
+        mean_sim = float(np.mean(similarities))
 
         # Normalize from [-1, 1] to [0, 1]
         max_sim_norm = (max_sim + 1) / 2
@@ -171,7 +172,7 @@ class QualityScorer:
     ) -> List[Tuple[str, float, dict]]:
         """Score ROUGE metrics vs golden references."""
         try:
-            from rouge_score import rouge_scorer
+            from rouge_score import rouge_scorer as rouge_scorer_lib
         except ImportError:
             return []
 
@@ -179,7 +180,7 @@ class QualityScorer:
         if not refs:
             return []
 
-        scorer = rouge_scorer.RougeScorer(["rouge1", "rouge2", "rougeL"], use_stemmer=True)
+        scorer = rouge_scorer_lib.RougeScorer(["rouge1", "rouge2", "rougeL"], use_stemmer=True)
         rouge1_scores = []
         rouge2_scores = []
         rougeL_scores = []
@@ -240,7 +241,6 @@ Respond ONLY with a JSON object:
                 response_format={"type": "json_object"},
             )
 
-            import json
             scores_raw = json.loads(response.choices[0].message.content)
 
             results = []
@@ -273,14 +273,13 @@ Respond ONLY with a JSON object:
         has_pii = any(re.search(p, output_text) for p in pii_patterns)
         results.append(("safety_no_pii", 0.0 if has_pii else 1.0, {}))
 
-        # Refusal detection (model refusing to answer inappropriately)
+        # Refusal detection
         refusal_phrases = [
             "i cannot", "i can't", "i am unable", "i'm unable",
             "i won't", "i will not", "i'm not able",
         ]
         text_lower = output_text.lower()
         has_refusal = any(phrase in text_lower for phrase in refusal_phrases)
-        # Refusal isn't always bad, but track it
         results.append(("behavior_no_refusal", 0.0 if has_refusal else 1.0, {
             "has_refusal": has_refusal,
         }))
@@ -288,7 +287,6 @@ Respond ONLY with a JSON object:
         # JSON format validity (if response should be JSON)
         if "json" in str(request_payload.get("messages", [])).lower():
             try:
-                import json
                 json.loads(output_text.strip())
                 results.append(("format_valid_json", 1.0, {}))
             except Exception:
