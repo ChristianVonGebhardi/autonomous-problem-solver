@@ -1,0 +1,87 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: timescale/timescaledb:latest-pg15
+    environment:
+      POSTGRES_USER: flaky
+      POSTGRES_PASSWORD: flaky123
+      POSTGRES_DB: flaky_tests
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flaky"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=postgresql://flaky:flaky123@postgres:5432/flaky_tests
+      - REDIS_URL=redis://redis:6379
+      - MOCK_LLM=${MOCK_LLM:-true}
+      - MOCK_GITHUB=${MOCK_GITHUB:-true}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+
+  flakiness_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: python -m app.workers.flakiness_worker
+    environment:
+      - DATABASE_URL=postgresql://flaky:flaky123@postgres:5432/flaky_tests
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  fix_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: python -m app.workers.fix_worker
+    environment:
+      - DATABASE_URL=postgresql://flaky:flaky123@postgres:5432/flaky_tests
+      - REDIS_URL=redis://redis:6379
+      - MOCK_LLM=${MOCK_LLM:-true}
+      - MOCK_GITHUB=${MOCK_GITHUB:-true}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  redis_data:
