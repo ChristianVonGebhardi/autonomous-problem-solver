@@ -154,3 +154,19 @@ See LESSONS.md: *"Railway is your test environment for anything involving Claude
 There is no separate specification document. The authoritative description
 of the system is the code itself, CLAUDE.md, and LESSONS.md.
 Do not create new documents in a docs/ directory.
+
+---
+
+## Operational log archive
+
+Downloaded Railway deploy logs and GitHub Actions run logs are stored locally in:
+
+```
+logs/
+  railway/    # Railway worker deploy and runtime logs
+  actions/    # GitHub Actions workflow run logs
+```
+
+These files are gitignored — they never appear in commits or git history.
+**Do not read, analyse, or reference files in `logs/` unless the user explicitly asks.**
+They are passive archives, not inputs to any coding task.

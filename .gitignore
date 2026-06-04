@@ -23,6 +23,13 @@ env/
 # Logs
 *.log
 
+# Operational log archive (Railway deploy logs, GitHub Actions run logs)
+# Store downloaded logs here locally for reference — never commit them.
+logs/railway/*
+logs/actions/*
+!logs/railway/.gitkeep
+!logs/actions/.gitkeep
+
 # IDE
 .vscode/
 .idea/
