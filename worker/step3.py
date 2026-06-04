@@ -16,6 +16,7 @@ from shared.markers import make_done_md, make_cancelled_md
 from shared.parsers import parse_step3_output, BlockerInfo
 from shared.prompts import STEP3_SYSTEM, step3_user_prompt, step3_resume_prompt
 from shared.utils import now_iso, truncate
+from worker.step4 import Step4Runner
 
 logger = logging.getLogger(__name__)
 
@@ -302,7 +303,7 @@ class Step3Runner:
     # ------------------------------------------------------------------
 
     def _handle_done(self, summary: str) -> str:
-        """Commits DONE.md and opens a PR."""
+        """Commits DONE.md, runs Step 4 build validation, and opens a PR."""
         logger.info("[%s] MVP complete — writing DONE.md", self.slug)
         done_md = make_done_md(
             slug=self.slug,
@@ -319,15 +320,62 @@ class Step3Runner:
         except Exception as e:
             logger.error("[%s] Failed to commit DONE.md: %s", self.slug, e)
 
-        # Update tracking Issue labels
-        self._update_cycle_issue_labels(remove="in-progress", add="done")
-
-        # Open PR
+        # Run Step 4 build validation
+        build_passed = True
+        build_output = ""
         try:
-            pr = self.github.create_done_pr(self.slug, self.branch)
-            logger.info("[%s] Done PR #%d opened", self.slug, pr.number)
+            step4 = Step4Runner(
+                github=self.github,
+                claude=self.claude,
+                slug=self.slug,
+                repo_owner=self.repo_owner,
+                repo_name=self.repo_name,
+            )
+            build_passed, build_output = step4.run()
+            logger.info("[%s] Step 4 result: passed=%s summary=%s", self.slug, build_passed, build_output)
         except Exception as e:
-            logger.warning("[%s] Could not create done PR (may already exist): %s", self.slug, e)
+            # Step 4 infrastructure failure should not block PR creation
+            logger.error("[%s] Step 4 raised unexpectedly — treating as passed: %s", self.slug, e)
+
+        if build_passed:
+            self._update_cycle_issue_labels(remove="in-progress", add="done")
+            try:
+                pr = self.github.create_done_pr(self.slug, self.branch)
+                logger.info("[%s] Done PR #%d opened", self.slug, pr.number)
+            except Exception as e:
+                logger.warning("[%s] Could not create done PR (may already exist): %s", self.slug, e)
+        else:
+            logger.warning("[%s] Step 4 build validation failed — opening needs-review PR", self.slug)
+            self._update_cycle_issue_labels(remove="in-progress", add="needs-review")
+            cycle_issue_number = self._get_cycle_issue_number()
+            try:
+                pr = self.github.create_done_pr(self.slug, self.branch, label="needs-review")
+                logger.info("[%s] Needs-review PR #%d opened", self.slug, pr.number)
+            except Exception as e:
+                logger.warning("[%s] Could not create needs-review PR: %s", self.slug, e)
+            try:
+                self.github.create_blocker_issue(
+                    slug=self.slug,
+                    summary=f"Step 4 build validation failed after {Step4Runner.MAX_FIX_ATTEMPTS} fix attempt(s)",
+                    what_is_blocked=(
+                        "The MVP implementation is complete but the generated code does not "
+                        "compile or build successfully after automated fix attempts."
+                    ),
+                    what_was_attempted=(
+                        f"Build was run {Step4Runner.MAX_FIX_ATTEMPTS} time(s) with Claude fixing "
+                        f"errors between each attempt. Final build output:\n\n"
+                        f"```\n{build_output[:2000]}\n```"
+                    ),
+                    resolution_options=[
+                        "Review the build errors above and fix the source files manually, then add label cycle-resume to the [CYCLE] issue",
+                        "Inspect the feature branch source files for the root cause",
+                        "Cancel this cycle if the scope is too complex to fix automatically",
+                    ],
+                    impact_if_unresolved="PR is open with label needs-review — MVP may not run without manual fixes.",
+                    cycle_issue_number=cycle_issue_number,
+                )
+            except Exception as e:
+                logger.error("[%s] Failed to create Step 4 blocker issue: %s", self.slug, e)
 
         return "done"
 

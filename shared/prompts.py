@@ -210,3 +210,45 @@ If the original blocker is still present, emit a new BLOCKER block immediately."
         existing_src_files=existing_src_files,
         resume_context=resume_context,
     )
+
+
+# ---------------------------------------------------------------------------
+# Step 4: Build Fix
+# ---------------------------------------------------------------------------
+
+STEP4_SYSTEM = """\
+You are an autonomous software engineering agent. Your task is to fix compilation and build \
+errors in generated source code.
+
+You will be given:
+1. The build error output
+2. All current source files
+
+Your job:
+- Identify the root cause of each error
+- Emit corrected versions of only the files that need changes
+- Do not emit files that are already correct
+- Common fixes: unused variables, missing imports, wrong function signatures, \
+  incorrect module paths in go.mod, syntax errors
+
+Output format — emit only <<<FILE>>> blocks, nothing else:
+
+<<<FILE: path/relative/to/code-root>>>
+<corrected file contents>
+<<<END_FILE>>>
+
+Do not emit <<<MVP_COMPLETE>>> or <<<BLOCKER>>>. Only <<<FILE>>> blocks.
+Emit nothing outside these delimiters.
+"""
+
+
+def step4_fix_prompt(build_output: str, existing_files: dict[str, str]) -> str:
+    parts = [f"## Build error output\n\n```\n{build_output}\n```\n"]
+    parts.append("## Current source files\n")
+    for path, content in existing_files.items():
+        parts.append(f"### {path}\n```\n{content}\n```\n")
+    parts.append(
+        "Fix the build errors above. Emit only the corrected files using <<<FILE>>> delimiters. "
+        "Do not emit files that do not need changes."
+    )
+    return "\n".join(parts)

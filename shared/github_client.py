@@ -329,16 +329,29 @@ class GitHubClient:
     # Pull Requests
     # ------------------------------------------------------------------
 
-    def create_done_pr(self, slug: str, branch_name: str) -> PullRequest:
-        """Opens a PR from the feature branch to main, labelled 'done'."""
+    def create_done_pr(self, slug: str, branch_name: str, label: str = "done") -> PullRequest:
+        """
+        Opens a PR from the feature branch to main.
+        label="done" for a clean MVP; label="needs-review" when Step 4 build validation failed.
+        """
+        if label == "done":
+            title = f"[DONE] {slug} — MVP complete"
+            body = f"Automated PR: MVP cycle complete for `{slug}`.\n\nSee `{slug}/DONE.md` for a summary."
+        else:
+            title = f"[NEEDS REVIEW] {slug} — build validation failed"
+            body = (
+                f"Automated PR: MVP implementation complete for `{slug}`, "
+                f"but Step 4 build validation failed after automated fix attempts.\n\n"
+                f"See the `[BLOCKER]` issue for the build error details and resolution options."
+            )
         pr = self._repo.create_pull(
-            title=f"[DONE] {slug} — MVP complete",
-            body=f"Automated PR: MVP cycle complete for `{slug}`.\n\nSee `{slug}/DONE.md` for a summary.",
+            title=title,
+            body=body,
             head=branch_name,
             base="main",
         )
-        pr.add_to_labels(self._ensure_label("done"))
-        logger.info("Created done PR #%d for slug=%s", pr.number, slug)
+        pr.add_to_labels(self._ensure_label(label))
+        logger.info("Created %s PR #%d for slug=%s", label, pr.number, slug)
         return pr
 
     # ------------------------------------------------------------------
@@ -354,6 +367,7 @@ class GitHubClient:
             "cycle-cancelled": "cfd3d7",
             "cycle-resume": "a2eeef",
             "done": "0e8a16",
+            "needs-review": "f4a261",
         }
         try:
             self._repo.get_label(name)
