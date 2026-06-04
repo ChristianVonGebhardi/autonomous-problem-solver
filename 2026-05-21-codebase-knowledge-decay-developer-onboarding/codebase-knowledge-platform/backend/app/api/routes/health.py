@@ -9,7 +9,7 @@ router = APIRouter()
 @router.get("/health")
 async def health_check():
     """System health check."""
-    checks = {}
+    checks: dict = {}
 
     # Neo4j
     try:
@@ -28,11 +28,35 @@ async def health_check():
     except Exception as e:
         checks["qdrant"] = f"error: {str(e)[:50]}"
 
+    # Redis
+    try:
+        import redis.asyncio as aioredis
+        r = aioredis.from_url(settings.redis_url, socket_connect_timeout=2)
+        await r.ping()
+        await r.aclose()
+        checks["redis"] = "ok"
+    except Exception as e:
+        checks["redis"] = f"error: {str(e)[:50]}"
+
+    # PostgreSQL
+    try:
+        from app.db.postgres import engine
+        async with engine.connect() as conn:
+            await conn.execute(__import__("sqlalchemy").text("SELECT 1"))
+        checks["postgres"] = "ok"
+    except Exception as e:
+        checks["postgres"] = f"error: {str(e)[:50]}"
+
     # LLM mode
     checks["llm"] = "openai" if settings.openai_api_key else "mock"
     checks["demo_mode"] = settings.demo_mode
 
-    overall = "ok" if all("ok" in v for v in checks.values() if isinstance(v, str)) else "degraded"
+    # Overall status: ok if neo4j+qdrant are up (the core stores)
+    core_ok = all(
+        checks.get(svc) == "ok"
+        for svc in ("neo4j", "qdrant", "redis", "postgres")
+    )
+    overall = "ok" if core_ok else "degraded"
 
     return {
         "status": overall,
