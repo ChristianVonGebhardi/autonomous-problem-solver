@@ -16,26 +16,38 @@ logger = structlog.get_logger()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize all connections on startup."""
-    logger.info("Starting Codebase Knowledge Platform")
+    logger.info("Starting Codebase Knowledge Platform", demo_mode=settings.demo_mode)
 
-    # Initialize PostgreSQL
-    await init_db()
-    logger.info("PostgreSQL initialized")
+    # PostgreSQL — create tables
+    try:
+        await init_db()
+        logger.info("PostgreSQL initialized")
+    except Exception as e:
+        logger.warning("PostgreSQL init failed", error=str(e))
 
-    # Initialize Neo4j
-    await neo4j_client.connect()
-    await neo4j_client.create_indexes()
-    logger.info("Neo4j connected and indexes created")
+    # Neo4j
+    try:
+        await neo4j_client.connect()
+        await neo4j_client.create_indexes()
+        logger.info("Neo4j connected and indexes created")
+    except Exception as e:
+        logger.warning("Neo4j not available", error=str(e))
 
-    # Initialize Qdrant
-    await qdrant_client.connect()
-    await qdrant_client.create_collections()
-    logger.info("Qdrant connected and collections ready")
+    # Qdrant
+    try:
+        await qdrant_client.connect()
+        await qdrant_client.create_collections()
+        logger.info("Qdrant connected and collections ready")
+    except Exception as e:
+        logger.warning("Qdrant not available", error=str(e))
 
     yield
 
     # Cleanup
-    await neo4j_client.close()
+    try:
+        await neo4j_client.close()
+    except Exception:
+        pass
     logger.info("Shutdown complete")
 
 
@@ -63,7 +75,7 @@ app.include_router(graph.router, prefix="/api/v1/graph", tags=["graph"])
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):
-    logger.error("Unhandled exception", error=str(exc), path=request.url.path)
+    logger.error("Unhandled exception", error=str(exc), path=str(request.url.path))
     return JSONResponse(
         status_code=500,
         content={"detail": "Internal server error", "error": str(exc)},
