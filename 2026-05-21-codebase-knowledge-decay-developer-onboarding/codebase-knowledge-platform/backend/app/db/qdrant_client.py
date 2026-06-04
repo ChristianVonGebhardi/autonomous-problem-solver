@@ -1,16 +1,6 @@
 import structlog
-from qdrant_client import AsyncQdrantClient
-from qdrant_client.models import (
-    Distance,
-    VectorParams,
-    PointStruct,
-    Filter,
-    FieldCondition,
-    MatchValue,
-    SearchRequest,
-)
-from typing import List, Dict, Any, Optional
 import uuid
+from typing import List, Dict, Any, Optional
 
 from app.config import settings
 
@@ -21,22 +11,27 @@ COLLECTION_NAME = "code_chunks"
 
 class QdrantClientWrapper:
     def __init__(self):
-        self.client: Optional[AsyncQdrantClient] = None
+        self.client = None
 
     async def connect(self):
         try:
+            from qdrant_client import AsyncQdrantClient
             self.client = AsyncQdrantClient(
                 host=settings.qdrant_host,
                 port=settings.qdrant_port,
             )
+            # Verify connectivity
+            await self.client.get_collections()
             logger.info("Qdrant connected", host=settings.qdrant_host)
         except Exception as e:
             logger.warning("Qdrant not available", error=str(e))
+            self.client = None
 
     async def create_collections(self):
         if not self.client:
             return
         try:
+            from qdrant_client.models import Distance, VectorParams
             collections = await self.client.get_collections()
             existing = [c.name for c in collections.collections]
             if COLLECTION_NAME not in existing:
@@ -55,30 +50,32 @@ class QdrantClientWrapper:
         """Store code chunks with embeddings."""
         if not self.client or not chunks:
             return
-        points = []
-        for chunk in chunks:
-            point_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, chunk["chunk_id"]))
-            # Convert UUID string to int for Qdrant
-            point_int_id = int(uuid.UUID(point_id))
-            points.append(
-                PointStruct(
-                    id=point_int_id,
-                    vector=chunk["embedding"],
-                    payload={
-                        "chunk_id": chunk["chunk_id"],
-                        "file_path": chunk["file_path"],
-                        "repo_name": chunk["repo_name"],
-                        "content": chunk["content"],
-                        "start_line": chunk.get("start_line", 0),
-                        "end_line": chunk.get("end_line", 0),
-                        "chunk_type": chunk.get("chunk_type", "code"),
-                        "name": chunk.get("name", ""),
-                        "language": chunk.get("language", ""),
-                        "commit_hash": chunk.get("commit_hash", ""),
-                    },
-                )
-            )
         try:
+            from qdrant_client.models import PointStruct
+            points = []
+            for chunk in chunks:
+                # Deterministic UUID from chunk_id string
+                point_uuid = uuid.uuid5(uuid.NAMESPACE_DNS, chunk["chunk_id"])
+                point_int_id = point_uuid.int >> 64  # Use upper 64 bits as positive int
+
+                points.append(
+                    PointStruct(
+                        id=point_int_id,
+                        vector=chunk["embedding"],
+                        payload={
+                            "chunk_id": chunk["chunk_id"],
+                            "file_path": chunk["file_path"],
+                            "repo_name": chunk["repo_name"],
+                            "content": chunk["content"],
+                            "start_line": chunk.get("start_line", 0),
+                            "end_line": chunk.get("end_line", 0),
+                            "chunk_type": chunk.get("chunk_type", "code"),
+                            "name": chunk.get("name", ""),
+                            "language": chunk.get("language", ""),
+                            "commit_hash": chunk.get("commit_hash", ""),
+                        },
+                    )
+                )
             await self.client.upsert(collection_name=COLLECTION_NAME, points=points)
         except Exception as e:
             logger.error("Failed to upsert chunks to Qdrant", error=str(e))
@@ -94,10 +91,14 @@ class QdrantClientWrapper:
         if not self.client:
             return []
         try:
+            from qdrant_client.models import Filter, FieldCondition, MatchValue
+
             filter_condition = None
             if repo_name:
                 filter_condition = Filter(
-                    must=[FieldCondition(key="repo_name", match=MatchValue(value=repo_name))]
+                    must=[
+                        FieldCondition(key="repo_name", match=MatchValue(value=repo_name))
+                    ]
                 )
 
             results = await self.client.search(
@@ -108,10 +109,7 @@ class QdrantClientWrapper:
                 score_threshold=score_threshold,
                 with_payload=True,
             )
-            return [
-                {**r.payload, "score": r.score}
-                for r in results
-            ]
+            return [{**r.payload, "score": r.score} for r in results]
         except Exception as e:
             logger.error("Qdrant search failed", error=str(e))
             return []
@@ -121,10 +119,13 @@ class QdrantClientWrapper:
         if not self.client:
             return
         try:
+            from qdrant_client.models import Filter, FieldCondition, MatchValue
             await self.client.delete(
                 collection_name=COLLECTION_NAME,
                 points_selector=Filter(
-                    must=[FieldCondition(key="repo_name", match=MatchValue(value=repo_name))]
+                    must=[
+                        FieldCondition(key="repo_name", match=MatchValue(value=repo_name))
+                    ]
                 ),
             )
         except Exception as e:
