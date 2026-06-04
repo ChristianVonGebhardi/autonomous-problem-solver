@@ -36,7 +36,6 @@ autonomous-problem-solver/
 ├── worker/
 │   ├── main.py                  # Railway entry point — poll loop, lifecycle dispatch
 │   └── step3.py                 # Step3Runner — fresh run, resume, truncation, DONE/BLOCKER
-├── docs/                        # Versioned system prompt JSON specs (read-only reference)
 ├── actions_runner.py            # GitHub Actions entry point — Steps 1 & 2
 ├── LESSONS.md                   # Operational journal — read before making architecture changes
 ├── Procfile                     # Railway process definition
@@ -150,6 +149,8 @@ See LESSONS.md: *"Railway is your test environment for anything involving Claude
 - **Do not close a `[CYCLE]` issue programmatically**: The worker only updates labels on CYCLE issues; it never closes them. Closing is a human action.
 - **Do not skip the `RESUME_COUNT` check in `_qualifies_for_step3()`**: This guard prevents already-attempted branches from being re-picked up as "fresh" after a container restart. Removing it causes duplicate Step 3 runs.
 
-### Do not modify `docs/` files
+### Do not create `docs/` files
 
-The `docs/` directory contains versioned system prompt JSON specs. They are reference documents, not configuration. The live prompts are in `shared/prompts.py`.
+There is no separate specification document. The authoritative description
+of the system is the code itself, CLAUDE.md, and LESSONS.md.
+Do not create new documents in a docs/ directory.
