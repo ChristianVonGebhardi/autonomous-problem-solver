@@ -1,6 +1,6 @@
 from pydantic_settings import BaseSettings
 from typing import Optional
-import os
+from functools import lru_cache
 
 
 class Settings(BaseSettings):
@@ -48,4 +48,9 @@ class Settings(BaseSettings):
         extra = "ignore"
 
 
-settings = Settings()
+@lru_cache()
+def get_settings() -> Settings:
+    return Settings()
+
+
+settings = get_settings()
