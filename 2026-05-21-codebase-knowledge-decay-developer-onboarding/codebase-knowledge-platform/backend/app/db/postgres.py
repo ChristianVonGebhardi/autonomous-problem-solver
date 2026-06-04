@@ -1,9 +1,8 @@
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.ext.asyncio import async_sessionmaker
-from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy import Column, String, DateTime, JSON, Integer, Text, Boolean
-from sqlalchemy.sql import func
+from datetime import datetime
 import uuid
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.orm import DeclarativeBase, mapped_column, Mapped
+from sqlalchemy import String, DateTime, Text, JSON, Integer, Boolean, func
 
 from app.config import settings
 
@@ -21,46 +20,46 @@ class Base(DeclarativeBase):
 class Repository(Base):
     __tablename__ = "repositories"
 
-    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    name = Column(String, unique=True, nullable=False)
-    repo_path = Column(String)
-    repo_url = Column(String)
-    status = Column(String, default="pending")  # pending, ingesting, ready, error
-    last_ingested_at = Column(DateTime(timezone=True))
-    file_count = Column(Integer, default=0)
-    commit_count = Column(Integer, default=0)
-    metadata_ = Column("metadata", JSON, default=dict)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    name: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    repo_path: Mapped[str] = mapped_column(Text, nullable=True)
+    repo_url: Mapped[str] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(50), default="pending")
+    last_ingested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+    file_count: Mapped[int] = mapped_column(Integer, default=0)
+    commit_count: Mapped[int] = mapped_column(Integer, default=0)
+    metadata_: Mapped[dict] = mapped_column("metadata", JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
 
 
 class IngestionJob(Base):
     __tablename__ = "ingestion_jobs"
 
-    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    repo_name = Column(String, nullable=False)
-    job_type = Column(String)  # git, github, slack, docs
-    status = Column(String, default="pending")
-    celery_task_id = Column(String)
-    progress = Column(Integer, default=0)
-    error_message = Column(Text)
-    metadata_ = Column("metadata", JSON, default=dict)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    completed_at = Column(DateTime(timezone=True))
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    repo_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    job_type: Mapped[str] = mapped_column(String(50), nullable=True)
+    status: Mapped[str] = mapped_column(String(50), default="pending")
+    celery_task_id: Mapped[str] = mapped_column(String(255), nullable=True)
+    progress: Mapped[int] = mapped_column(Integer, default=0)
+    error_message: Mapped[str] = mapped_column(Text, nullable=True)
+    metadata_: Mapped[dict] = mapped_column("metadata", JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    completed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class QueryLog(Base):
     __tablename__ = "query_logs"
 
-    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    repo_name = Column(String)
-    question = Column(Text, nullable=False)
-    answer = Column(Text)
-    sources_count = Column(Integer, default=0)
-    latency_ms = Column(Integer)
-    model_used = Column(String)
-    cached = Column(Boolean, default=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    repo_name: Mapped[str] = mapped_column(String(255), nullable=True)
+    question: Mapped[str] = mapped_column(Text, nullable=False)
+    answer: Mapped[str] = mapped_column(Text, nullable=True)
+    sources_count: Mapped[int] = mapped_column(Integer, default=0)
+    latency_ms: Mapped[int] = mapped_column(Integer, nullable=True)
+    model_used: Mapped[str] = mapped_column(String(100), nullable=True)
+    cached: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 async def init_db():
