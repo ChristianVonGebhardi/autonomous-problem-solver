@@ -143,6 +143,16 @@ See LESSONS.md: *"Railway is your test environment for anything involving Claude
 - **Do not use `use_web_search=True` together with `use_streaming=True`**: Web search tool calls are handled inside the SDK's agentic loop; streaming and tool use are incompatible in the current client implementation.
 - **Do not modify `STEP3_SYSTEM` without re-reading LESSONS.md first**: The terminal block instructions (`<<<MVP_COMPLETE>>>`, `<<<BLOCKER>>>`) and anti-preamble rules were tuned across many failed runs. Prompt changes here are high-risk.
 
+### Branch and PR policy
+
+MVPs are self-contained projects with no relation to each other.
+`main` contains only agent infrastructure — never MVP code.
+When Step 3 completes, the PR is **closed without merging** (Policy B).
+The `done` label and `DONE.md` on the feature branch are the completion signal.
+
+Do not merge feature branches into main.
+Do not suggest merging a done PR as a cleanup or housekeeping action.
+
 ### Never do these in the worker
 
 - **Do not store correctness-critical state in Python variables**: Container restarts on Railway reset all in-memory state silently. Any state that must survive a restart (e.g. resume count) must be written to the feature branch as a file.
