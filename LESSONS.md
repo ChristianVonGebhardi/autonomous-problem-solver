@@ -188,3 +188,34 @@ Building this system is structurally identical to embedded systems development: 
 locally, deploy to target hardware (Railway), observe via logs (serial port equivalent),
 iterate. The main difference is cost — each Railway + Claude API test cycle has a real dollar
 cost, which imposes healthy discipline on the size of each change.
+
+---
+
+## Dashboard & GitHub Pages
+
+### GitHub Pages requires the repo to be public
+Free GitHub Pages is only available for public repositories. The dashboard was developed
+against a private repo and activated by making the repo public. If the repo is ever made
+private again, the Pages site will stop serving.
+
+### `gh-pages` is a GitHub convention, not an arbitrary name
+GitHub Pages requires this specific branch name when source is set to "Deploy from a branch"
+in repository settings. The `peaceiris/actions-gh-pages` action also defaults to it.
+
+### `force_orphan: true` is the right default for generated static sites
+Every dashboard deployment rewrites the `gh-pages` branch from scratch as an orphan commit.
+This prevents the branch from accumulating history (every 30-minute regeneration would
+otherwise bloat it indefinitely) and avoids merge conflicts if the generated HTML ever changes
+significantly.
+
+### GitHub Actions can call the Anthropic API — no extra infra needed
+The dashboard's Claude motivational statement is generated inside a GitHub Actions job using
+`ANTHROPIC_API_KEY` from Actions secrets. This avoids the need for a separate Railway service
+just to call Claude. The pattern — Actions runner + Anthropic SDK + static output — works
+cleanly for any read-only, scheduled Claude call.
+
+### Use `GITHUB_TOKEN` in Actions workflows, `GH_PAT` in Railway
+Actions jobs receive an auto-provided `GITHUB_TOKEN` scoped to the run. The Railway worker
+cannot use it and needs a long-lived PAT (`GH_PAT`). Never confuse the two: using `GH_PAT`
+inside an Actions job works but is unnecessary and couples the workflow to a secret rotation
+schedule. Using `GITHUB_TOKEN` on Railway would fail silently after the token expires.

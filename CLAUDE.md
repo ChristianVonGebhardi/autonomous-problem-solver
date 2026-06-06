@@ -5,8 +5,9 @@
 An autonomous AI agent pipeline that daily selects a real software problem, designs an
 architecture, and implements a working MVP — without human involvement. GitHub Actions runs
 Steps 1 (problem brainstorm) and 2 (architecture design) on a daily cron; a persistent
-Railway worker runs Step 3 (MVP implementation) by polling for new feature branches. All
-inter-step coordination happens through GitHub branches and Issues.
+Railway worker runs Step 3 (MVP implementation) by polling for new feature branches. A
+separate GitHub Actions workflow generates a public status dashboard every 30 minutes and
+deploys it to GitHub Pages. All inter-step coordination happens through GitHub branches and Issues.
 
 ---
 
@@ -25,7 +26,8 @@ inter-step coordination happens through GitHub branches and Issues.
 ```
 autonomous-problem-solver/
 ├── .github/workflows/
-│   └── daily_cycle.yml          # Cron trigger for Steps 1 & 2
+│   ├── daily_cycle.yml          # Cron trigger for Steps 1 & 2
+│   └── dashboard.yml            # Dashboard generator — every 30 min, deploys to gh-pages
 ├── shared/
 │   ├── build_detector.py        # Language detection from marker files — returns build commands
 │   ├── claude_client.py         # Anthropic SDK wrapper — retry, streaming, tool loop
@@ -39,7 +41,8 @@ autonomous-problem-solver/
 │   ├── step3.py                 # Step3Runner — fresh run, resume, truncation, DONE/BLOCKER
 │   └── step4.py                 # Step4Runner — build validation, Claude fix loop, PR labelling
 ├── scripts/
-│   └── run_step4.py             # Standalone Step 4 runner — test build validation locally
+│   ├── run_step4.py             # Standalone Step 4 runner — test build validation locally
+│   └── generate_dashboard.py    # Dashboard generator — reads GitHub data, calls Claude, emits HTML
 ├── actions_runner.py            # GitHub Actions entry point — Steps 1 & 2
 ├── LESSONS.md                   # Operational journal — read before making architecture changes
 ├── Procfile                     # Railway process definition
@@ -168,6 +171,14 @@ Do not suggest merging a done PR as a cleanup or housekeeping action.
 - **Do not let Step 4 infrastructure failures block PR creation**: Clone failures, missing runtimes, and unsupported languages all return `(passed=True, ...)`. Step 4 is a best-effort gate — it must never prevent a completed MVP from getting a PR.
 - **Do not use `nixPkgs` in `nixpacks.toml` to add system packages**: `nixPkgs` replaces Nixpacks' auto-detected packages (including Python), not adds to them. Use `aptPkgs` instead — it is additive. This caused a Railway build failure where `python: command not found` after adding Go support.
 - **Do not assume language markers are at the slug root**: Claude structures MVPs as `slug/project-name/backend/requirements.txt` or deeper. `build_detector.py` uses `os.walk()` for full recursive search — do not revert this to a fixed-depth check.
+
+### Never do these in the dashboard
+
+- **Do not commit `dashboard_output/` to `main`**: The build artifact is gitignored. Only `scripts/generate_dashboard.py` and `.github/workflows/dashboard.yml` belong on `main`. The rendered HTML lives on the `gh-pages` branch, managed exclusively by the workflow.
+- **Do not manually push to the `gh-pages` branch**: It is managed by `peaceiris/actions-gh-pages` with `force_orphan: true` — every deployment replaces the branch entirely. Manual pushes will be overwritten on the next run.
+- **Do not read DONE.md via `github_client.read_file()`**: That method has the base64 pagination bug (issue #53). The dashboard script uses `gh._repo.get_contents()` with `.content.replace("\n", "")` directly — see `_read_file()` in `generate_dashboard.py`.
+- **Do not use `GH_PAT` as the env var name in the dashboard workflow**: The workflow runs inside GitHub Actions and uses the auto-provided `GITHUB_TOKEN`. `GH_PAT` is for Railway only.
+- **`gh-pages` is a GitHub convention, not a variable**: GitHub Pages requires this exact branch name when source is set to "Deploy from a branch". Do not rename it.
 
 ### Do not create `docs/` files
 
