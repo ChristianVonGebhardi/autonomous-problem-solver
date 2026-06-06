@@ -1,7 +1,7 @@
 # Lessons Learned — Autonomous Problem Solver
 
 A running log of hard-won insights from building and operating this system.
-Updated after the v0.3.1 milestone sprint (May 2026).
+Updated after the Step 4 build validation milestone (June 2026).
 
 ---
 
@@ -110,22 +110,46 @@ only add to `processed_resumed` when result is not `"resuming"`.
 
 ## MVP Quality & Step 4
 
+### Step 4 is a compile/syntax gate, not a functional test
+Step 4 validates that the generated code can be built, not that it works. Specifically:
+- **Python**: `python -m compileall -q .` — syntax errors only, no dependency installation
+- **Go**: `go mod tidy` + `go build ./...` + `go vet ./...` — full compile + static analysis
+- **Node/Rust/Java/others**: skipped (unsupported), counted as passed
+
+A `done` label means the code is syntactically/structurally valid. Whether the app starts,
+the API responds, or the UI renders is still a human concern.
+
+### Step 4 infrastructure failures always pass through
+Clone failures, missing runtime binaries, and unsupported languages all return `passed=True`.
+Step 4 is best-effort — it must never block PR creation for a completed MVP.
+
 ### Claude generates syntactically plausible but uncompiled code
 Generated MVPs are architecturally sound and substantially complete, but may contain
-compilation errors (unused variables, incomplete `go.sum` files, missing imports). These are
-minor — the real-world test of the Go circuit breaker MVP required exactly one line fix
-after `go mod tidy`. A Step 4 automated build/test loop would catch these automatically.
+compilation errors (unused variables, incomplete `go.sum` files, missing imports). Step 4's
+Claude fix loop (up to 3 attempts) handles these automatically for Go and Python.
 
 ### `go mod tidy` is a required setup step for Go MVPs
 Claude generates `go.mod` and `go.sum` but does not run `go mod tidy` during generation.
-The committed `go.sum` may be incomplete. Any Go MVP README should include `go mod tidy`
-as the first setup step before `go build` or `go run`.
+The committed `go.sum` may be incomplete. Step 4 runs `go mod tidy` as the first command,
+which fills in the missing entries before `go build`.
 
 ### One line fix, working CLI — that is the benchmark
 The first fully validated MVP (real-time cloud spending circuit breaker) worked after a
 single one-line fix: removing an unused variable. It produced a working Go CLI with
 subcommands, real-time simulation, ASCII dashboards, YAML policy engine, and cost
 estimation. The ratio of human effort to autonomous output is the metric that matters.
+
+### MVP source code is nested arbitrarily deep
+Claude structures MVPs as `slug/project-name/[backend|src|cmd]/` — the language marker
+(`requirements.txt`, `go.mod`) can be two or three levels below the slug root, not one.
+`build_detector.py` uses `os.walk()` for a full recursive search. Do not replace this with
+a fixed-depth scan — the nesting depth varies per MVP.
+
+### `aptPkgs` is additive; `nixPkgs` replaces in nixpacks.toml
+Adding `nixPkgs = ["go", "git"]` to `nixpacks.toml` replaced Nixpacks' auto-detected Python
+provider, causing `python: command not found` at Railway startup (exit 127). The fix:
+use `aptPkgs = ["golang-go", "git"]` under `[phases.setup]` — APT packages are installed
+on top of the auto-detected Nix environment, not instead of it.
 
 ---
 

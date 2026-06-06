@@ -9,6 +9,7 @@ An autonomous AI agent that identifies real-world problems daily, designs softwa
 | **1 — Problem Brainstorm** | GitHub Actions (daily, 00:00 UTC) | Claude searches the web, avoids past problems, picks the best new candidate, writes `PROBLEM.md` |
 | **2 — Architecture Design** | GitHub Actions (same run) | Claude designs the best-fit stack, writes `ARCHITECTURE.md` with a Mermaid diagram |
 | **3 — MVP Implementation** | Railway (always-on worker) | Claude implements the MVP, commits source files, opens blocker Issues if stuck, writes `DONE.md` when complete |
+| **4 — Build Validation** | Railway (same worker, runs after Step 3) | Clones the feature branch, detects language, runs build/compile commands; up to 3 Claude-assisted fix attempts; labels PR `done` on pass or `needs-review` on failure |
 
 Each problem lives on its own branch: `feature/YYYY-MM-DD-problem-slug`.
 
@@ -22,6 +23,7 @@ Each problem lives on its own branch: `feature/YYYY-MM-DD-problem-slug`.
 │   └── workflows/
 │       └── daily_cycle.yml       # Steps 1 & 2 — runs daily at 00:00 UTC
 ├── shared/
+│   ├── build_detector.py         # Language detection — returns build commands for Step 4
 │   ├── claude_client.py          # Anthropic API wrapper (web search + retry)
 │   ├── github_client.py          # PyGithub wrapper (branches, files, issues, PRs)
 │   ├── markers.py                # DONE.md and CANCELLED.md generators
@@ -30,7 +32,10 @@ Each problem lives on its own branch: `feature/YYYY-MM-DD-problem-slug`.
 │   └── utils.py                  # Slug generation, timestamps, text helpers
 ├── worker/
 │   ├── main.py                   # Railway persistent worker — polling loop
-│   └── step3.py                  # Step 3 runner (fresh + resumed cycles)
+│   ├── step3.py                  # Step 3 runner (fresh + resumed cycles)
+│   └── step4.py                  # Step 4 runner (build validation + Claude fix loop)
+├── scripts/
+│   └── run_step4.py              # Run Step 4 locally against any completed feature branch
 ├── actions_runner.py             # GitHub Actions entry point (Steps 1 & 2)
 ├── requirements.txt
 ├── Procfile                      # Railway process definition
@@ -118,7 +123,8 @@ in_progress → blocked → in_progress   (loop until resolved)
 | `blocker-resolved` | Human has resolved the blocker — worker resumes |
 | `cycle-cancelled` | Human closed the Issue — worker writes `CANCELLED.md` |
 | `cycle-resume` | Human wants to restart a cancelled cycle |
-| `done` | MVP complete — PR opened to `main` |
+| `done` | MVP complete, Step 4 build validation passed — PR opened |
+| `needs-review` | MVP complete but Step 4 build validation failed after 3 fix attempts — PR opened for human review |
 
 ### Responding to a blocker
 

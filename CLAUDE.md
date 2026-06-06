@@ -27,6 +27,7 @@ autonomous-problem-solver/
 ├── .github/workflows/
 │   └── daily_cycle.yml          # Cron trigger for Steps 1 & 2
 ├── shared/
+│   ├── build_detector.py        # Language detection from marker files — returns build commands
 │   ├── claude_client.py         # Anthropic SDK wrapper — retry, streaming, tool loop
 │   ├── github_client.py         # GitHub API wrapper — branches, issues, commits, PRs
 │   ├── markers.py               # Generates DONE.md and CANCELLED.md content
@@ -35,7 +36,10 @@ autonomous-problem-solver/
 │   └── utils.py                 # Slug generation, timestamps, text helpers
 ├── worker/
 │   ├── main.py                  # Railway entry point — poll loop, lifecycle dispatch
-│   └── step3.py                 # Step3Runner — fresh run, resume, truncation, DONE/BLOCKER
+│   ├── step3.py                 # Step3Runner — fresh run, resume, truncation, DONE/BLOCKER
+│   └── step4.py                 # Step4Runner — build validation, Claude fix loop, PR labelling
+├── scripts/
+│   └── run_step4.py             # Standalone Step 4 runner — test build validation locally
 ├── actions_runner.py            # GitHub Actions entry point — Steps 1 & 2
 ├── LESSONS.md                   # Operational journal — read before making architecture changes
 ├── Procfile                     # Railway process definition
@@ -158,6 +162,12 @@ Do not suggest merging a done PR as a cleanup or housekeeping action.
 - **Do not store correctness-critical state in Python variables**: Container restarts on Railway reset all in-memory state silently. Any state that must survive a restart (e.g. resume count) must be written to the feature branch as a file.
 - **Do not close a `[CYCLE]` issue programmatically**: The worker only updates labels on CYCLE issues; it never closes them. Closing is a human action.
 - **Do not skip the `RESUME_COUNT` check in `_qualifies_for_step3()`**: This guard prevents already-attempted branches from being re-picked up as "fresh" after a container restart. Removing it causes duplicate Step 3 runs.
+
+### Never do these in Step 4
+
+- **Do not let Step 4 infrastructure failures block PR creation**: Clone failures, missing runtimes, and unsupported languages all return `(passed=True, ...)`. Step 4 is a best-effort gate — it must never prevent a completed MVP from getting a PR.
+- **Do not use `nixPkgs` in `nixpacks.toml` to add system packages**: `nixPkgs` replaces Nixpacks' auto-detected packages (including Python), not adds to them. Use `aptPkgs` instead — it is additive. This caused a Railway build failure where `python: command not found` after adding Go support.
+- **Do not assume language markers are at the slug root**: Claude structures MVPs as `slug/project-name/backend/requirements.txt` or deeper. `build_detector.py` uses `os.walk()` for full recursive search — do not revert this to a fixed-depth check.
 
 ### Do not create `docs/` files
 
