@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.log
+
+# Environment
+.env
+
+# Node
+node_modules/
+dashboard/dist/
+dashboard/node_modules/
+
+# Database
+*.db
+*.sqlite3
+
+# Sentence transformers cache
+~/.cache/torch/
+~/.cache/huggingface/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker
+.dockerignore
