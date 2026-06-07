@@ -1,120 +1,292 @@
 # ATCAP — AI Token Cost Attribution Platform
 
-## Overview
+A purpose-built instrumentation and analytics platform that intercepts LLM API calls, enriches them with business context, computes costs in real time, and correlates spend against business-value signals — turning opaque AI invoices into actionable ROI dashboards.
 
-ATCAP is a purpose-built instrumentation and analytics platform that intercepts LLM API calls, enriches them with business context, stores cost/usage telemetry, and correlates spend against business-value signals through real-time dashboards.
-
-## Architecture (MVP)
+## Architecture Overview
 
 ```
-Python SDK → FastAPI Collector → PostgreSQL/ClickHouse-compatible SQLite → React Dashboard
-                ↓
-         Background Processor (cost enrichment, windowed rollups)
-                ↓
-         Business Value Ingestion (GitHub webhooks, Jira mock)
-                ↓
-         Slack Alerting (budget breach notifications)
+SDK (Python)          Backend (FastAPI)        Frontend (React)
+   │                       │                       │
+   ├─ WorkflowContext  ─►  ├─ Token Events API     ├─ Overview Dashboard
+   ├─ OpenAI Proxy    ─►  ├─ Cost Aggregation      ├─ Cost Breakdown
+   └─ Anthropic Proxy ─►  ├─ Budget Policies       ├─ Budget Manager
+                           ├─ ROI Correlation       ├─ ROI Correlation
+                           ├─ Pricing Catalog       ├─ Alerts Panel
+                           └─ Slack Alerting        └─ Pricing Catalog
 ```
 
-## Prerequisites
+**Storage:** SQLite (dev) → swap `DATABASE_URL` for PostgreSQL in production  
+**Stack:** Python 3.11 + FastAPI + SQLAlchemy + React 18 + Recharts
 
-- Python 3.11+
-- Node.js 18+
-- Docker & Docker Compose (optional, for full stack)
+---
 
-## Quick Start
+## Quick Start (Docker Compose — recommended)
 
-### 1. Clone and set up the project
+### Prerequisites
+- Docker + Docker Compose v2
+
+### 1. Clone and configure
 
 ```bash
 cd atcap
+cp backend/.env.example backend/.env
+# Optionally edit backend/.env to add SLACK_WEBHOOK_URL, GITHUB_TOKEN, etc.
 ```
 
-### 2. Backend Setup
+### 2. Start all services
 
 ```bash
-cd backend
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-
-# Copy environment config
-cp .env.example .env
-# Edit .env with your settings (optional for MVP demo)
-
-# Initialize database
-python -m app.db.init_db
-
-# Start the backend
-uvicorn app.main:app --reload --port 8000
+docker compose up --build
 ```
 
-### 3. Frontend Setup
+Services started:
+- **Backend API:** http://localhost:8000
+- **Frontend Dashboard:** http://localhost:3000
+- **API Docs (Swagger):** http://localhost:8000/docs
+
+### 3. Run the demo to seed data
+
+In a second terminal:
 
 ```bash
-cd frontend
-npm install
-npm start
-# Opens at http://localhost:3000
-```
-
-### 4. Run the Demo SDK
-
-```bash
-cd backend
-# In a separate terminal (with venv activated)
+cd atcap/backend
+pip install httpx  # if not already installed
 python -m demo.run_demo
 ```
 
-This simulates multiple AI agents making LLM calls with business context tags, generating cost data visible in the dashboard.
+This seeds 30 days of synthetic LLM call data, business value events, and budget policies, then prints a summary of costs by team and model.
 
-## Docker Compose (Full Stack)
+### 4. Open the dashboard
+
+Navigate to **http://localhost:3000** to explore:
+- **Overview** — total costs, team breakdown, time series, budget utilisation
+- **Cost Breakdown** — drill by team, feature, model, or top events
+- **Budget Policies** — create/manage spend thresholds with warn/critical alerts
+- **Alerts** — view and acknowledge triggered budget alerts
+- **ROI Correlation** — correlate token spend against business value outcomes
+- **Pricing Catalog** — view and update LLM pricing rates
+
+---
+
+## Local Development (no Docker)
+
+### Backend
 
 ```bash
-docker-compose up --build
-# Backend: http://localhost:8000
-# Frontend: http://localhost:3000
-# API Docs: http://localhost:8000/docs
+cd atcap/backend
+
+# Create virtualenv
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Configure
+cp .env.example .env
+# Edit .env as needed (SQLite is the default, no extra setup required)
+
+# Start backend
+uvicorn app.main:app --reload --port 8000
 ```
 
-## Key Features Demonstrated
+### Frontend
 
-1. **SDK Instrumentation**: `WorkflowContext` propagator + LLM client interceptor
-2. **Real-time Cost Computation**: Token counts × per-model pricing
-3. **Attribution**: Costs tagged by team, feature, workflow, business entity
-4. **Budget Policies**: Configurable per-team/feature thresholds with breach alerts
-5. **Business Value Correlation**: Link costs to GitHub PRs, Jira tickets
-6. **Dashboard**: React UI with Recharts — cost by team, model, feature, ROI
-7. **REST API**: Full CRUD for policies, budget queries, cost reports
+```bash
+cd atcap/frontend
 
-## API Endpoints
+npm install
+npm start
+# Opens http://localhost:3000
+```
 
-- `POST /api/v1/events` — Ingest token usage events from SDK
-- `GET /api/v1/costs/summary` — Aggregated cost summary
-- `GET /api/v1/costs/by-team` — Costs broken down by team
-- `GET /api/v1/costs/by-feature` — Costs broken down by feature
-- `GET /api/v1/costs/by-model` — Costs broken down by model
-- `GET /api/v1/budgets` — List budget policies
-- `POST /api/v1/budgets` — Create budget policy
-- `GET /api/v1/roi` — ROI correlation records
-- `POST /api/v1/value-events` — Ingest business value events
-- `GET /api/v1/pricing` — Current pricing catalog
-- `POST /api/v1/alerts/test` — Test Slack alert
+### Run demo
 
-## Pricing Catalog
+```bash
+cd atcap/backend
+python -m demo.run_demo
+```
 
-Versioned pricing stored in `backend/app/data/pricing_catalog.json`. Models supported:
-- OpenAI: gpt-4o, gpt-4-turbo, gpt-3.5-turbo, o1, o1-mini
-- Anthropic: claude-3-5-sonnet, claude-3-opus, claude-3-haiku
-- Google: gemini-1.5-pro, gemini-1.5-flash
+---
+
+## SDK Usage
+
+The Python SDK wraps LLM clients to automatically emit cost events with attribution context.
+
+### Installation
+
+```bash
+# From the backend directory (SDK is co-located)
+# Or install as a package in future: pip install atcap-sdk
+```
+
+### OpenAI
+
+```python
+import openai
+import sys
+sys.path.insert(0, 'path/to/atcap/backend')
+
+from sdk import instrument_openai, WorkflowContext
+
+# Wrap your OpenAI client once at startup
+client = instrument_openai(
+    openai.OpenAI(api_key="sk-..."),
+    collector_url="http://localhost:8000"
+)
+
+# Set attribution context before each workflow
+with WorkflowContext(
+    team="platform",
+    feature="code-review-agent",
+    business_entity_id="PR-1234",
+    business_entity_type="pr"
+):
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": "Review this code..."}]
+    )
+    # Cost automatically attributed to platform/code-review-agent/PR-1234
+```
+
+### Anthropic
+
+```python
+import anthropic
+from sdk import instrument_anthropic, WorkflowContext
+
+client = instrument_anthropic(
+    anthropic.Anthropic(api_key="sk-ant-..."),
+    collector_url="http://localhost:8000"
+)
+
+with WorkflowContext(team="search", feature="query-expansion"):
+    response = client.messages.create(
+        model="claude-3-5-sonnet-20241022",
+        max_tokens=1024,
+        messages=[{"role": "user", "content": "Expand this query..."}]
+    )
+```
+
+### Manual event ingestion (direct API)
+
+```bash
+curl -X POST http://localhost:8000/api/v1/events \
+  -H "Content-Type: application/json" \
+  -d '{
+    "team": "search",
+    "feature": "ai-search",
+    "provider": "openai",
+    "model": "gpt-4o",
+    "prompt_tokens": 1200,
+    "completion_tokens": 400,
+    "business_entity_id": "JIRA-4567",
+    "business_entity_type": "ticket"
+  }'
+```
+
+### Batch ingestion
+
+```bash
+curl -X POST http://localhost:8000/api/v1/events/batch \
+  -H "Content-Type: application/json" \
+  -d '{"events": [...]}'
+```
+
+---
+
+## API Reference
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/v1/events` | Ingest a single token event |
+| POST | `/api/v1/events/batch` | Ingest multiple events |
+| GET | `/api/v1/costs/summary` | Aggregated cost summary |
+| GET | `/api/v1/costs/by-team` | Cost breakdown by team |
+| GET | `/api/v1/costs/by-feature` | Cost breakdown by feature |
+| GET | `/api/v1/costs/by-model` | Cost breakdown by model |
+| GET | `/api/v1/costs/timeseries` | Time series cost data |
+| GET | `/api/v1/costs/top-events` | Most expensive calls |
+| GET | `/api/v1/budgets` | List budget policies |
+| POST | `/api/v1/budgets` | Create budget policy |
+| DELETE | `/api/v1/budgets/{id}` | Remove budget policy |
+| POST | `/api/v1/budgets/evaluate` | Trigger policy evaluation |
+| GET | `/api/v1/alerts` | List triggered alerts |
+| POST | `/api/v1/alerts/{id}/acknowledge` | Acknowledge an alert |
+| GET | `/api/v1/roi` | ROI correlation records |
+| POST | `/api/v1/roi/compute` | Trigger ROI computation |
+| POST | `/api/v1/value-events` | Ingest a value event |
+| GET | `/api/v1/value-events` | List value events |
+| GET | `/api/v1/pricing` | List pricing catalog |
+| POST | `/api/v1/pricing` | Add/update pricing entry |
+| POST | `/api/v1/alerts/test` | Send test Slack alert |
+
+Full interactive docs: http://localhost:8000/docs
+
+---
 
 ## Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DATABASE_URL` | `sqlite:///./atcap.db` | Database connection string |
+| `DATABASE_URL` | `sqlite+aiosqlite:///./atcap.db` | Database connection string |
+| `REDIS_URL` | — | Redis URL (optional, reserved for future) |
+| `SECRET_KEY` | `dev-secret-...` | JWT secret (for future auth) |
 | `SLACK_WEBHOOK_URL` | — | Slack incoming webhook for alerts |
-| `GITHUB_TOKEN` | — | GitHub API token for value ingestion |
+| `GITHUB_TOKEN` | — | GitHub PAT for PR ingestion |
+| `GITHUB_ORG` | — | GitHub org for auto-repo discovery |
 | `JIRA_BASE_URL` | — | Jira instance URL |
 | `JIRA_TOKEN` | — | Jira API token |
-| `SECRET_KEY` | `dev-secret` | JWT secret for API auth |
+| `DEFAULT_BUDGET_ALERT_THRESHOLD_PCT` | `80.0` | Default warn threshold |
+
+---
+
+## Production Deployment
+
+### Switch to PostgreSQL
+
+```bash
+# In backend/.env:
+DATABASE_URL=postgresql+asyncpg://user:pass@host:5432/atcap
+```
+
+Add `asyncpg` to requirements.txt:
+```
+asyncpg==0.29.0
+```
+
+### Scale considerations
+
+- The current SQLite backend handles dev/demo workloads well
+- For production ingestion volumes (>100 events/sec), migrate to PostgreSQL + add a Redis write-behind buffer
+- The architecture is designed to slot Kafka in front of the ingest path with minimal code changes
+- ClickHouse can replace the `cost_aggregates` table for sub-second dashboard queries at scale
+
+---
+
+## Budget Alerting
+
+Budget policies are evaluated:
+1. **Automatically** every 60 seconds in the background
+2. **On demand** via `POST /api/v1/budgets/evaluate` or the dashboard button
+
+Alert levels:
+- **Warning** — spend ≥ `warn_threshold_pct` (default 80%)
+- **Critical** — spend ≥ `critical_threshold_pct` (default 95%)
+
+Alerts fire at most once per hour per policy to prevent spam. Configure `SLACK_WEBHOOK_URL` to receive Slack notifications.
+
+---
+
+## CI Cost Gate (OPA / Conftest)
+
+To enforce AI cost budgets in CI pipelines:
+
+```bash
+# Check current spend against policy before deployment
+curl http://localhost:8000/api/v1/budgets | \
+  jq '[.[] | select(.spend_pct > 90)] | length' | \
+  xargs -I {} sh -c 'if [ {} -gt 0 ]; then echo "COST GATE FAILED"; exit 1; fi'
+```
+
+A full OPA/conftest integration can be layered on top of the REST API for more complex gate logic.
