@@ -14,7 +14,7 @@ from shared.claude_client import ClaudeClient
 from shared.github_client import GitHubClient
 from shared.markers import make_done_md, make_cancelled_md
 from shared.parsers import parse_step3_output, BlockerInfo
-from shared.prompts import STEP3_SYSTEM, step3_user_prompt, step3_resume_prompt, step25_user_prompt
+from shared.prompts import STEP3_SYSTEM, step3_user_prompt, step3_resume_prompt
 from shared.utils import now_iso, truncate
 from worker.step4 import Step4Runner
 
