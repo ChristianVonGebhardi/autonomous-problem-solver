@@ -6,7 +6,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.db.init_db import init_db
 from app.api.v1 import events, costs, budgets, roi, pricing, alerts
-from app.services.cost_processor import compute_windowed_aggregates, evaluate_budget_policies, compute_roi_records
+from app.services.cost_processor import (
+    compute_windowed_aggregates,
+    evaluate_budget_policies,
+    compute_roi_records,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -69,9 +73,9 @@ PREFIX = "/api/v1"
 app.include_router(events.router, prefix=PREFIX, tags=["Events"])
 app.include_router(costs.router, prefix=PREFIX, tags=["Costs"])
 app.include_router(budgets.router, prefix=PREFIX, tags=["Budgets"])
+app.include_router(alerts.router, prefix=PREFIX, tags=["Alerts"])
 app.include_router(roi.router, prefix=PREFIX, tags=["ROI"])
 app.include_router(pricing.router, prefix=PREFIX, tags=["Pricing"])
-app.include_router(alerts.router, prefix=PREFIX, tags=["Alerts"])
 
 
 @app.get("/health")
