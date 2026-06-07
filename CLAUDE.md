@@ -174,6 +174,7 @@ Do not suggest merging a done PR as a cleanup or housekeeping action.
 - **Do not store correctness-critical state in Python variables**: Container restarts on Railway reset all in-memory state silently. Any state that must survive a restart (e.g. resume count) must be written to the feature branch as a file.
 - **Do not close a `[CYCLE]` issue programmatically**: The worker only updates labels on CYCLE issues; it never closes them. Closing is a human action.
 - **Do not skip the `RESUME_COUNT` check in `_qualifies_for_step3()`**: This guard prevents already-attempted branches from being re-picked up as "fresh" after a container restart. Removing it causes duplicate Step 3 runs.
+- **Do not remove the `has_review_md` check in `_qualifies_for_step3()`**: This guard closes a race condition where the worker picks up a branch in the ~60s window between ARCHITECTURE.md and REVIEW.md commits. Without it, Step 3 can start before Step 2.5 finishes, missing the peer review context.
 
 ### Never do these in Step 4
 

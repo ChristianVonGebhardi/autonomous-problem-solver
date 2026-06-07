@@ -16,6 +16,8 @@ Trigger logic for Step 3 (per the agreed spec decision):
   A branch qualifies for Step 3 if:
   - It starts with "feature/"
   - It has ARCHITECTURE.md on the branch
+  - It has REVIEW.md on the branch (Step 2.5 complete — prevents a race where the worker
+    picks up the branch in the ~60s window between ARCHITECTURE.md and REVIEW.md commits)
   - It does NOT have a src/ directory
   - It does NOT have a DONE.md
   - It does NOT have a CANCELLED.md
@@ -257,7 +259,7 @@ def _handle_fresh_branches(
     Scans all feature/* branches for ones that qualify for a fresh Step 3 run.
 
     Qualifies if:
-    - Has ARCHITECTURE.md
+    - Has ARCHITECTURE.md and REVIEW.md (both Steps 2 and 2.5 complete)
     - No src/ directory
     - No DONE.md
     - No CANCELLED.md
@@ -293,6 +295,11 @@ def _handle_fresh_branches(
 def _qualifies_for_step3(pb: ProblemBranch, github: GitHubClient) -> bool:
     """Returns True if the branch is ready for a fresh Step 3 run."""
     if not pb.has_architecture_md:
+        return False
+    # Wait for Step 2.5 to finish — prevents picking up branch in the ~60s window
+    # between ARCHITECTURE.md commit and REVIEW.md commit.
+    if not pb.has_review_md:
+        logger.debug("Skipping slug=%s — REVIEW.md not yet present (Step 2.5 still running or failed)", pb.slug)
         return False
     if pb.has_src:
         return False
