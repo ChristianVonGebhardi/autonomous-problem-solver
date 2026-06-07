@@ -233,7 +233,24 @@ class Step3Runner:
                     return "resuming"
         except Exception as e:
             logger.error("[%s] Failed to add cycle-resume label: %s", self.slug, e)
-        return "error"
+            return "error"
+
+        # CYCLE issue not found (closed or missing) — open a blocker so the operator is alerted.
+        logger.error("[%s] No open [CYCLE] issue found — cannot schedule auto-resume", self.slug)
+        return self._handle_blocker(BlockerInfo(
+            summary="Auto-resume failed — [CYCLE] issue not found or closed",
+            what_is_blocked="Step 3 was truncated and requires a resume, but the [CYCLE] issue "
+                            "could not be found in open issues. The cycle is now stalled.",
+            what_was_attempted=f"Claude was truncated (resume count: {resume_count}). "
+                               "Attempted to add cycle-resume label to the [CYCLE] issue, "
+                               "but no open issue matching the slug was found.",
+            resolution_options=[
+                "Re-open the [CYCLE] issue and add the label cycle-resume to it manually",
+                "Create a new [CYCLE] issue with the correct slug title and add cycle-resume",
+                "Cancel this cycle if the partial output is unusable",
+            ],
+            impact_if_unresolved="Cycle is stalled — RESUME_COUNT increments but no resume will be scheduled.",
+        ))
 
     # ------------------------------------------------------------------
     # File operations
