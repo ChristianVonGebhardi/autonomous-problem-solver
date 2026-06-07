@@ -10,7 +10,7 @@ An autonomous AI agent that identifies real-world problems daily, designs softwa
 | **2 — Architecture Design** | GitHub Actions (same run) | Claude designs the best-fit stack, writes `ARCHITECTURE.md` with a Mermaid diagram |
 | **3 — MVP Implementation** | Railway (always-on worker) | Claude implements the MVP, commits source files, opens blocker Issues if stuck, writes `DONE.md` when complete |
 | **4 — Build Validation** | Railway (same worker, runs after Step 3) | Clones the feature branch, detects language, runs build/compile commands; up to 3 Claude-assisted fix attempts; labels PR `done` on pass or `needs-review` on failure |
-| **Dashboard** | GitHub Actions (every 30 min) | Reads all feature branch data, calls Claude for a motivational statement, generates a static HTML page deployed to GitHub Pages |
+| **Dashboard** | GitHub Actions (after each daily cycle) | Reads all feature branch data, calls Claude for a motivational statement, generates a static HTML page deployed to GitHub Pages |
 
 Each problem lives on its own branch: `feature/YYYY-MM-DD-problem-slug`.
 
@@ -23,7 +23,7 @@ Each problem lives on its own branch: `feature/YYYY-MM-DD-problem-slug`.
 ├── .github/
 │   └── workflows/
 │       ├── daily_cycle.yml       # Steps 1 & 2 — runs daily at 00:00 UTC
-│       └── dashboard.yml         # Dashboard — runs every 30 min, deploys to GitHub Pages
+│       └── dashboard.yml         # Dashboard — runs after daily cycle completes, deploys to GitHub Pages
 ├── shared/
 │   ├── build_detector.py         # Language detection — returns build commands for Step 4
 │   ├── claude_client.py          # Anthropic API wrapper (web search + retry)
@@ -150,7 +150,7 @@ When the agent is stuck, it opens an Issue titled `[BLOCKER] {slug} — {summary
 A live status dashboard is available at:
 **https://ChristianVonGebhardi.github.io/autonomous-problem-solver/**
 
-It refreshes every 30 minutes via GitHub Actions and shows:
+It refreshes automatically after each daily cycle run (Steps 1 & 2) via GitHub Actions, and can be triggered manually via `workflow_dispatch`. It shows:
 - A Claude-generated motivational statement based on the current cycle state
 - Metric cards: total cycles, done, in progress, blocked, cancelled, average duration
 - A per-cycle table with status badge, progress bar (25 / 50 / 75 / 100% by lifecycle stage), and duration

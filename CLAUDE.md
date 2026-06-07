@@ -6,8 +6,8 @@ An autonomous AI agent pipeline that daily selects a real software problem, desi
 architecture, and implements a working MVP — without human involvement. GitHub Actions runs
 Steps 1 (problem brainstorm) and 2 (architecture design) on a daily cron; a persistent
 Railway worker runs Step 3 (MVP implementation) by polling for new feature branches. A
-separate GitHub Actions workflow generates a public status dashboard every 30 minutes and
-deploys it to GitHub Pages. All inter-step coordination happens through GitHub branches and Issues.
+separate GitHub Actions workflow regenerates the public status dashboard after each daily
+cycle run and deploys it to GitHub Pages. All inter-step coordination happens through GitHub branches and Issues.
 
 ---
 
@@ -27,7 +27,7 @@ deploys it to GitHub Pages. All inter-step coordination happens through GitHub b
 autonomous-problem-solver/
 ├── .github/workflows/
 │   ├── daily_cycle.yml          # Cron trigger for Steps 1 & 2
-│   └── dashboard.yml            # Dashboard generator — every 30 min, deploys to gh-pages
+│   └── dashboard.yml            # Dashboard generator — triggered after daily cycle, deploys to gh-pages
 ├── shared/
 │   ├── build_detector.py        # Language detection from marker files — returns build commands
 │   ├── claude_client.py         # Anthropic SDK wrapper — retry, streaming, tool loop

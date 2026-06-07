@@ -1,10 +1,9 @@
 name: Generate Dashboard
 
 on:
-  schedule:
-    - cron: "*/30 * * * *"
-  push:
-    branches: [main]
+  workflow_run:
+    workflows: ["Daily Problem Cycle (Steps 1 & 2)"]
+    types: [completed]
   workflow_dispatch:
 
 permissions:

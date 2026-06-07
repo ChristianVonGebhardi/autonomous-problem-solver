@@ -204,15 +204,23 @@ in repository settings. The `peaceiris/actions-gh-pages` action also defaults to
 
 ### `force_orphan: true` is the right default for generated static sites
 Every dashboard deployment rewrites the `gh-pages` branch from scratch as an orphan commit.
-This prevents the branch from accumulating history (every 30-minute regeneration would
-otherwise bloat it indefinitely) and avoids merge conflicts if the generated HTML ever changes
-significantly.
+This prevents the branch from accumulating history and avoids merge conflicts if the generated
+HTML ever changes significantly. It also means the trigger frequency is irrelevant to branch
+size — whether the dashboard runs once a day or on-demand, the branch stays a single commit.
 
 ### GitHub Actions can call the Anthropic API — no extra infra needed
 The dashboard's Claude motivational statement is generated inside a GitHub Actions job using
 `ANTHROPIC_API_KEY` from Actions secrets. This avoids the need for a separate Railway service
 just to call Claude. The pattern — Actions runner + Anthropic SDK + static output — works
 cleanly for any read-only, scheduled Claude call.
+
+### Trigger the dashboard on `workflow_run`, not on a schedule
+A 30-minute cron would run the dashboard ~48 times per day regardless of whether anything
+changed — burning GitHub Actions minutes and Anthropic API tokens on Claude motivational
+statement calls. The `workflow_run` trigger on `Daily Problem Cycle (Steps 1 & 2)` fires
+exactly once per day, immediately after new cycle content is created. `workflow_dispatch`
+covers manual refreshes. If Step 3/4 completions later become important to reflect promptly,
+add a daily fallback cron then — don't pre-optimise for it.
 
 ### Use `GITHUB_TOKEN` in Actions workflows, `GH_PAT` in Railway
 Actions jobs receive an auto-provided `GITHUB_TOKEN` scoped to the run. The Railway worker
