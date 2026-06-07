@@ -299,7 +299,11 @@ class GitHubClient:
         try:
             return list(self._repo.get_issues(state=state, labels=[label]))
         except GithubException as e:
-            logger.error("Failed to list issues by label %s: %s", label, e)
+            if e.status == 404:
+                # Label doesn't exist in the repo yet — not an error, just no matching issues.
+                logger.warning("Label '%s' not found in repo — returning empty list", label)
+            else:
+                logger.error("Failed to list issues by label %s: %s", label, e)
             return []
 
     def add_label_to_issue(self, issue: Issue, label: str) -> None:
