@@ -221,7 +221,7 @@ class GitHubClient:
         """Returns file content as string, or None if not found."""
         try:
             content_file: ContentFile = self._repo.get_contents(path, ref=branch)
-            return base64.b64decode(content_file.content).decode("utf-8")
+            return base64.b64decode(content_file.content.replace("\n", "")).decode("utf-8")
         except GithubException as e:
             if e.status == 404:
                 return None
