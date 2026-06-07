@@ -2,7 +2,7 @@ name: Generate Dashboard
 
 on:
   workflow_run:
-    workflows: ["Daily Problem Cycle (Steps 1 & 2)"]
+    workflows: ["Daily Problem Cycle"]
     types: [completed]
   workflow_dispatch:
 

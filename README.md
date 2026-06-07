@@ -23,7 +23,7 @@ Each problem lives on its own branch: `feature/YYYY-MM-DD-problem-slug`.
 .
 ├── .github/
 │   └── workflows/
-│       ├── daily_cycle.yml       # Steps 1 & 2 — runs daily at 00:00 UTC
+│       ├── daily_cycle.yml       # Steps 1, 2 & 2.5 — runs daily at 00:00 UTC
 │       └── dashboard.yml         # Dashboard — runs after daily cycle completes, deploys to GitHub Pages
 ├── shared/
 │   ├── build_detector.py         # Language detection — returns build commands for Step 4
@@ -40,7 +40,7 @@ Each problem lives on its own branch: `feature/YYYY-MM-DD-problem-slug`.
 ├── scripts/
 │   ├── run_step4.py              # Run Step 4 locally against any completed feature branch
 │   └── generate_dashboard.py     # Generate dashboard HTML (also run by dashboard.yml)
-├── actions_runner.py             # GitHub Actions entry point (Steps 1 & 2)
+├── actions_runner.py             # GitHub Actions entry point (Steps 1, 2 & 2.5)
 ├── requirements.txt
 ├── Procfile                      # Railway process definition
 ├── railway.toml                  # Railway build & deploy config
@@ -151,7 +151,7 @@ When the agent is stuck, it opens an Issue titled `[BLOCKER] {slug} — {summary
 A live status dashboard is available at:
 **https://ChristianVonGebhardi.github.io/autonomous-problem-solver/**
 
-It refreshes automatically after each daily cycle run (Steps 1 & 2) via GitHub Actions, and can be triggered manually via `workflow_dispatch`. It shows:
+It refreshes automatically after each daily cycle run via GitHub Actions, and can be triggered manually via `workflow_dispatch`. It shows:
 - A Claude-generated motivational statement based on the current cycle state
 - Metric cards: total cycles, done, in progress, blocked, cancelled, average duration
 - A per-cycle table with status badge, progress bar (25 / 50 / 75 / 100% by lifecycle stage), and duration
@@ -182,7 +182,7 @@ pip install -r requirements.txt
 cp .env.example .env
 # Edit .env — fill in ANTHROPIC_API_KEY, GH_PAT, REPO_OWNER, REPO_NAME
 
-# Test Steps 1 & 2 locally
+# Test the daily cycle locally (Steps 1, 2 & 2.5)
 export $(cat .env | xargs)
 export GITHUB_TOKEN=$GH_PAT   # Actions runner reads GITHUB_TOKEN
 python -c "from actions_runner import run_steps_1_and_2; run_steps_1_and_2()"
@@ -216,7 +216,7 @@ Once the problem archive grows beyond ~50 entries, consider adding a ChromaDB ve
 |---|---|---|---|
 | `POLL_INTERVAL_SECONDS` | Railway env var | `60` | How often the worker checks for new branches / label changes |
 | `MAX_TOKENS` in `claude_client.py` | Code | `8192` | Max output per Claude call |
-| Cron schedule | `daily_cycle.yml` | `0 0 * * *` | When Steps 1 & 2 run |
+| Cron schedule | `daily_cycle.yml` | `0 0 * * *` | When the daily cycle runs |
 | Step 1 `max_tokens` | `actions_runner.py` | `4096` | Max length of PROBLEM.md generation |
 
 ## Known Issues

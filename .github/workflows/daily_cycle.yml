@@ -1,4 +1,4 @@
-name: Daily Problem Cycle (Steps 1 & 2)
+name: Daily Problem Cycle
 
 on:
   schedule:

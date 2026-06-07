@@ -27,7 +27,7 @@ Pages. All inter-step coordination happens through GitHub branches and Issues.
 ```
 autonomous-problem-solver/
 ├── .github/workflows/
-│   ├── daily_cycle.yml          # Cron trigger for Steps 1 & 2
+│   ├── daily_cycle.yml          # Cron trigger for Steps 1, 2 & 2.5
 │   └── dashboard.yml            # Dashboard generator — triggered after daily cycle, deploys to gh-pages
 ├── shared/
 │   ├── build_detector.py        # Language detection from marker files — returns build commands
@@ -44,7 +44,7 @@ autonomous-problem-solver/
 ├── scripts/
 │   ├── run_step4.py             # Standalone Step 4 runner — test build validation locally
 │   └── generate_dashboard.py    # Dashboard generator — reads GitHub data, calls Claude, emits HTML
-├── actions_runner.py            # GitHub Actions entry point — Steps 1 & 2
+├── actions_runner.py            # GitHub Actions entry point — Steps 1, 2 & 2.5
 ├── LESSONS.md                   # Operational journal — read before making architecture changes
 ├── Procfile                     # Railway process definition
 ├── railway.toml                 # Railway config
@@ -76,7 +76,7 @@ cp .env.example .env
 # Fill in ANTHROPIC_API_KEY, GH_PAT, REPO_OWNER, REPO_NAME
 ```
 
-### Run Steps 1 & 2 locally
+### Run the daily cycle locally (Steps 1, 2 & 2.5)
 
 ```bash
 python -c "from actions_runner import run_steps_1_and_2; run_steps_1_and_2()"

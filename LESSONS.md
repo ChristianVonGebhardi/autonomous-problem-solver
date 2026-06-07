@@ -225,8 +225,8 @@ cleanly for any read-only, scheduled Claude call.
 ### Trigger the dashboard on `workflow_run`, not on a schedule
 A 30-minute cron would run the dashboard ~48 times per day regardless of whether anything
 changed — burning GitHub Actions minutes and Anthropic API tokens on Claude motivational
-statement calls. The `workflow_run` trigger on `Daily Problem Cycle (Steps 1 & 2)` fires
-exactly once per day, immediately after new cycle content is created. `workflow_dispatch`
+statement calls. The `workflow_run` trigger on `Daily Problem Cycle` fires exactly once per
+day, immediately after new cycle content is created. `workflow_dispatch`
 covers manual refreshes. If Step 3/4 completions later become important to reflect promptly,
 add a daily fallback cron then — don't pre-optimise for it.
 
