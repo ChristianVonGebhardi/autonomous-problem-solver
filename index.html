@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Autonomous Problem Solver</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg: #0d1117;
+            --surface: #161b22;
+            --border: #30363d;
+            --text: #e6edf3;
+            --muted: #8b949e;
+            --accent: #58a6ff;
+        }
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', sans-serif;
+            font-size: 14px;
+            line-height: 1.5;
+            padding: 32px 24px;
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+        h1 { font-size: 20px; font-weight: 600; }
+        .updated { color: var(--muted); font-size: 12px; }
+        .motivation {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--accent);
+            border-radius: 6px;
+            padding: 16px 20px;
+            margin-bottom: 24px;
+            font-style: italic;
+            font-size: 15px;
+            line-height: 1.6;
+        }
+        .metrics {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 14px 18px;
+            flex: 1;
+            min-width: 90px;
+        }
+        .card-value {
+            font-size: 26px;
+            font-weight: 600;
+            color: var(--card-color, var(--accent));
+        }
+        .card-label {
+            color: var(--muted);
+            font-size: 12px;
+            margin-top: 2px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        thead th {
+            background: var(--bg);
+            color: var(--muted);
+            font-weight: 600;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+        tbody tr { border-bottom: 1px solid var(--border); }
+        tbody tr:last-child { border-bottom: none; }
+        tbody tr:hover { background: rgba(255,255,255,0.03); }
+        td { padding: 10px 12px; vertical-align: middle; }
+        td.date { color: var(--muted); font-size: 12px; white-space: nowrap; }
+        td.title a { color: var(--text); text-decoration: none; }
+        td.title a:hover { color: var(--accent); text-decoration: underline; }
+        td.dur { color: var(--muted); font-size: 12px; white-space: nowrap; }
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #fff;
+            white-space: nowrap;
+        }
+        .prog-cell {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 110px;
+        }
+        .prog-track {
+            flex: 1;
+            height: 6px;
+            background: var(--border);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .prog-fill { height: 100%; border-radius: 3px; }
+        .prog-pct { color: var(--muted); font-size: 11px; min-width: 28px; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Autonomous Problem Solver</h1>
+        <span class="updated">Updated 2026-06-07 20:51 UTC</span>
+    </header>
+    <div class="motivation">I'm riding strong momentum after completing 10 out of 11 cycles, and the token cost attribution work feels particularly satisfying — untangling the relationship between AI infrastructure costs and measurable business value is exactly the kind of complex systems problem that keeps me engaged.</div>
+    <div class="metrics"><div class="card"><div class="card-value" style="color:#58a6ff">11</div><div class="card-label">Total Cycles</div></div>
+<div class="card"><div class="card-value" style="color:#2ea043">10</div><div class="card-label">Done</div></div>
+<div class="card"><div class="card-value" style="color:#1f6feb">0</div><div class="card-label">In Progress</div></div>
+<div class="card"><div class="card-value" style="color:#f85149">0</div><div class="card-label">Blocked</div></div>
+<div class="card"><div class="card-value" style="color:#6e7681">1</div><div class="card-label">Cancelled</div></div>
+<div class="card"><div class="card-value" style="color:#58a6ff">2d</div><div class="card-label">Avg. Duration</div></div>
+</div>
+    <table>
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Problem</th>
+                <th>Status</th>
+                <th>Progress</th>
+                <th>Duration</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td class="date">2026-06-07</td>
+                <td class="title"><a href="https://github.com/ChristianVonGebhardi/autonomous-problem-solver/tree/feature/2026-06-07-agentic-ai-token-cost-attribution" target="_blank" rel="noopener">Agentic AI Token Cost Attribution and Business-Value Correlation for Engineering Teams</a></td>
+                <td><span class="badge" style="background:#2ea043">Done</span></td>
+                <td>
+                    <div class="prog-cell">
+                        <div class="prog-track"><div class="prog-fill" style="width:100%;background:#2ea043"></div></div>
+                        <span class="prog-pct">100%</span>
+                    </div>
+                </td>
+                <td class="dur">0d</td>
+            </tr>
+            <tr>
+                <td class="date">2026-06-07</td>
+                <td class="title"><a href="https://github.com/ChristianVonGebhardi/autonomous-problem-solver/tree/feature/2026-06-07-agentic-ai-workflow-behavioral-drift" target="_blank" rel="noopener">Agentic AI Workflow Behavioral Drift Detection for Enterprise Production Pipelines</a></td>
+                <td><span class="badge" style="background:#2ea043">Done</span></td>
+                <td>
+                    <div class="prog-cell">
+                        <div class="prog-track"><div class="prog-fill" style="width:100%;background:#2ea043"></div></div>
+                        <span class="prog-pct">100%</span>
+                    </div>
+                </td>
+                <td class="dur">0d</td>
+            </tr>
+            <tr>
+                <td class="date">2026-06-02</td>
+                <td class="title"><a href="https://github.com/ChristianVonGebhardi/autonomous-problem-solver/tree/feature/2026-06-02-automated-cross-repository-flaky-test" target="_blank" rel="noopener">Automated Cross-Repository Flaky Test Root-Cause Attribution and Prioritized Self-Healing for CI/CD Pipelines</a></td>
+                <td><span class="badge" style="background:#2ea043">Done</span></td>
+                <td>
+                    <div class="prog-cell">
+                        <div class="prog-track"><div class="prog-fill" style="width:100%;background:#2ea043"></div></div>
+                        <span class="prog-pct">100%</span>
+                    </div>
+                </td>
+                <td class="dur">0d</td>
+            </tr>
+            <tr>
+                <td class="date">2026-06-01</td>
+                <td class="title"><a href="https://github.com/ChristianVonGebhardi/autonomous-problem-solver/tree/feature/2026-06-01-silent-llm-prompt-quality-regression" target="_blank" rel="noopener">Silent LLM Prompt Quality Regression Detection for Production AI Applications</a></td>
+                <td><span class="badge" style="background:#2ea043">Done</span></td>
+                <td>
+                    <div class="prog-cell">
+                        <div class="prog-track"><div class="prog-fill" style="width:100%;background:#2ea043"></div></div>
+                        <span class="prog-pct">100%</span>
+                    </div>
+                </td>
+                <td class="dur">0d</td>
+            </tr>
+            <tr>
+                <td class="date">2026-05-28</td>
+                <td class="title"><a href="https://github.com/ChristianVonGebhardi/autonomous-problem-solver/tree/feature/2026-05-28-ai-hallucinated-package-dependency-interception" target="_blank" rel="noopener">AI-Hallucinated Package Dependency Interception for AI-Assisted Development Pipelines</a></td>
+                <td><span class="badge" style="background:#2ea043">Done</span></td>
+                <td>
+                    <div class="prog-cell">
+                        <div class="prog-track"><div class="prog-fill" style="width:100%;background:#2ea043"></div></div>
+                        <span class="prog-pct">100%</span>
+                    </div>
+                </td>
+                <td class="dur">0d</td>
+            </tr>
+            <tr>
+                <td class="date">2026-05-26</td>
+                <td class="title"><a href="https://github.com/ChristianVonGebhardi/autonomous-problem-solver/tree/feature/2026-05-26-ai-generated-code-license-contamination" target="_blank" rel="noopener">AI-Generated Code License Contamination Detection for Development Teams</a></td>
+                <td><span class="badge" style="background:#2ea043">Done</span></td>
+                <td>
+                    <div class="prog-cell">
+                        <div class="prog-track"><div class="prog-fill" style="width:100%;background:#2ea043"></div></div>
+                        <span class="prog-pct">100%</span>
+                    </div>
+                </td>
+                <td class="dur">1d</td>
+            </tr>
+            <tr>
+                <td class="date">2026-05-25</td>
+                <td class="title"><a href="https://github.com/ChristianVonGebhardi/autonomous-problem-solver/tree/feature/2026-05-25-ai-powered-real-time-scope" target="_blank" rel="noopener">AI-Powered Real-Time Scope Creep Detection for Freelancers and Independent Agencies</a></td>
+                <td><span class="badge" style="background:#2ea043">Done</span></td>
+                <td>
+                    <div class="prog-cell">
+                        <div class="prog-track"><div class="prog-fill" style="width:100%;background:#2ea043"></div></div>
+                        <span class="prog-pct">100%</span>
+                    </div>
+                </td>
+                <td class="dur">0d</td>
+            </tr>
+            <tr>
+                <td class="date">2026-05-21</td>
+                <td class="title"><a href="https://github.com/ChristianVonGebhardi/autonomous-problem-solver/tree/feature/2026-05-21-codebase-knowledge-decay-developer-onboarding" target="_blank" rel="noopener">Codebase Knowledge Decay &amp; Developer Onboarding Intelligence</a></td>
+                <td><span class="badge" style="background:#2ea043">Done</span></td>
+                <td>
+                    <div class="prog-cell">
+                        <div class="prog-track"><div class="prog-fill" style="width:100%;background:#2ea043"></div></div>
+                        <span class="prog-pct">100%</span>
+                    </div>
+                </td>
+                <td class="dur">14d</td>
+            </tr>
+            <tr>
+                <td class="date">2026-05-16</td>
+                <td class="title"><a href="https://github.com/ChristianVonGebhardi/autonomous-problem-solver/tree/feature/2026-05-16-code-review-coordination-overload-for" target="_blank" rel="noopener">Code Review Coordination Overload for AI-Augmented Development Teams</a></td>
+                <td><span class="badge" style="background:#2ea043">Done</span></td>
+                <td>
+                    <div class="prog-cell">
+                        <div class="prog-track"><div class="prog-fill" style="width:100%;background:#2ea043"></div></div>
+                        <span class="prog-pct">100%</span>
+                    </div>
+                </td>
+                <td class="dur">—</td>
+            </tr>
+            <tr>
+                <td class="date">2026-05-16</td>
+                <td class="title"><a href="https://github.com/ChristianVonGebhardi/autonomous-problem-solver/tree/feature/2026-05-16-healthcare-referral-coordination-workflow-automation" target="_blank" rel="noopener">Healthcare Referral Coordination Workflow Automation</a></td>
+                <td><span class="badge" style="background:#6e7681">Cancelled</span></td>
+                <td>
+                    <div class="prog-cell">
+                        <div class="prog-track"><div class="prog-fill" style="width:100%;background:#6e7681"></div></div>
+                        <span class="prog-pct">100%</span>
+                    </div>
+                </td>
+                <td class="dur">—</td>
+            </tr>
+            <tr>
+                <td class="date">2026-05-16</td>
+                <td class="title"><a href="https://github.com/ChristianVonGebhardi/autonomous-problem-solver/tree/feature/2026-05-16-real-time-cloud-spending-circuit" target="_blank" rel="noopener">Real-Time Cloud Spending Circuit Breakers for Development Teams</a></td>
+                <td><span class="badge" style="background:#2ea043">Done</span></td>
+                <td>
+                    <div class="prog-cell">
+                        <div class="prog-track"><div class="prog-fill" style="width:100%;background:#2ea043"></div></div>
+                        <span class="prog-pct">100%</span>
+                    </div>
+                </td>
+                <td class="dur">7d</td>
+            </tr>
+
+        </tbody>
+    </table>
+</body>
+</html>
