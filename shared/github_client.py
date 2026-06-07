@@ -36,6 +36,7 @@ class ProblemBranch:
     branch_name: str                 # e.g. "feature/2025-05-14-offline-medication-reminders"
     has_problem_md: bool = False
     has_architecture_md: bool = False
+    has_review_md: bool = False
     has_src: bool = False
     has_done_md: bool = False
     has_cancelled_md: bool = False
@@ -147,6 +148,7 @@ class GitHubClient:
             pb = ProblemBranch(slug=slug, branch_name=branch.name)
             pb.has_problem_md = self._file_exists(f"{slug}/PROBLEM.md", branch.name)
             pb.has_architecture_md = self._file_exists(f"{slug}/ARCHITECTURE.md", branch.name)
+            pb.has_review_md = self._file_exists(f"{slug}/REVIEW.md", branch.name)
             pb.has_src = self._file_exists(f"{slug}/src", branch.name)
             pb.has_done_md = self._file_exists(f"{slug}/DONE.md", branch.name)
             pb.has_cancelled_md = self._file_exists(f"{slug}/CANCELLED.md", branch.name)

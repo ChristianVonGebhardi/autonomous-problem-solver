@@ -14,7 +14,7 @@ from shared.claude_client import ClaudeClient
 from shared.github_client import GitHubClient
 from shared.markers import make_done_md, make_cancelled_md
 from shared.parsers import parse_step3_output, BlockerInfo
-from shared.prompts import STEP3_SYSTEM, step3_user_prompt, step3_resume_prompt
+from shared.prompts import STEP3_SYSTEM, step3_user_prompt, step3_resume_prompt, step25_user_prompt
 from shared.utils import now_iso, truncate
 from worker.step4 import Step4Runner
 
@@ -68,10 +68,13 @@ class Step3Runner:
         if not problem_md or not architecture_md:
             return "error"
 
+        review_md = self._load_review_md()
+
         prompt = step3_user_prompt(
             problem_md=problem_md,
             architecture_md=architecture_md,
             existing_src_files=None,
+            review_md=review_md,
         )
         return self._execute_and_handle(prompt, problem_md, architecture_md, cancelled_md=None)
 
@@ -85,6 +88,7 @@ class Step3Runner:
         if not problem_md or not architecture_md:
             return "error"
 
+        review_md = self._load_review_md()
         existing_src = self._load_existing_src()
         logger.info("[%s] Found %d existing src file(s)", self.slug, len(existing_src))
 
@@ -93,6 +97,7 @@ class Step3Runner:
             problem_md=problem_md,
             architecture_md=architecture_md,
             existing_src_files=existing_src,
+            review_md=review_md,
         )
         return self._execute_and_handle(prompt, problem_md, architecture_md, cancelled_md=cancelled_md)
 
@@ -234,6 +239,14 @@ class Step3Runner:
     # File operations
     # ------------------------------------------------------------------
 
+    def _load_review_md(self) -> Optional[str]:
+        review = self.github.read_file(f"{self.slug}/REVIEW.md", self.branch)
+        if review:
+            logger.info("[%s] Loaded REVIEW.md (%d chars) as Step 3 context", self.slug, len(review))
+        else:
+            logger.debug("[%s] No REVIEW.md found — proceeding without peer review context", self.slug)
+        return review
+
     def _load_required_docs(self) -> tuple[Optional[str], Optional[str]]:
         problem_md = self.github.read_file(f"{self.slug}/PROBLEM.md", self.branch)
         architecture_md = self.github.read_file(f"{self.slug}/ARCHITECTURE.md", self.branch)
@@ -252,7 +265,7 @@ class Step3Runner:
         CANCELLED.md, README.md). Returns a dict of {relative_path: content}.
         """
         EXCLUDED_FILES = {
-            "PROBLEM.md", "ARCHITECTURE.md", "DONE.md", "CANCELLED.md", "README.md", "RESUME_COUNT"
+            "PROBLEM.md", "ARCHITECTURE.md", "REVIEW.md", "DONE.md", "CANCELLED.md", "README.md", "RESUME_COUNT"
         }
         result = {}
         try:

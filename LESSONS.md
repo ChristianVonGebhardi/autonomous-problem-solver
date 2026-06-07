@@ -1,7 +1,7 @@
 # Lessons Learned — Autonomous Problem Solver
 
 A running log of hard-won insights from building and operating this system.
-Updated after the Step 4 build validation milestone (June 2026).
+Updated after the Step 2.5 peer review and dashboard milestones (June 2026).
 
 ---
 
@@ -70,6 +70,14 @@ Vague instructions like "include supporting evidence" are ignored. Explicit form
 ---
 
 ## GitHub Actions & CI
+
+### Step 2.5 adds a peer review without blocking autonomous operation
+The review step (domain expert + software architect personas in one Claude call) surfaces weak
+problem definitions and flawed architectures before the Railway worker spends tokens on
+implementation. The verdict is informational — the cycle always proceeds regardless. This is
+the right trade-off: a blocking gate would require human intervention to unblock, breaking
+fully autonomous operation. If the reviews consistently flag the same weaknesses, the right
+fix is to improve the Step 1/2 prompts, not to add a gate.
 
 ### 120 seconds between Steps 1 and 2 is not always enough
 The 30,000 input token per minute rate limit is hit consistently when Step 1 produces a

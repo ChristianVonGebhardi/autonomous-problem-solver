@@ -24,8 +24,10 @@ from shared.parsers import parse_step2_output, build_architecture_md
 from shared.prompts import (
     STEP1_SYSTEM,
     STEP2_SYSTEM,
+    STEP25_SYSTEM,
     step1_user_prompt,
     step2_user_prompt,
+    step25_user_prompt,
 )
 from shared.utils import (
     today_iso,
@@ -143,11 +145,32 @@ def run_steps_1_and_2() -> None:
     )
     logger.info("Committed ARCHITECTURE.md to %s", branch)
 
+    # --- Step 2.5: Peer Review ---
+    logger.info("Waiting 60s before Step 2.5 to respect token-per-minute rate limits...")
+    time.sleep(60)
+
+    logger.info("Running Step 2.5: Peer Review...")
+    review_raw, _ = claude.complete(
+        system=STEP25_SYSTEM,
+        messages=[{"role": "user", "content": step25_user_prompt(problem_md, architecture_md)}],
+        use_web_search=False,
+        max_tokens=2048,
+    )
+    logger.info("Step 2.5 complete. Review (%d chars):\n%s", len(review_raw), truncate(review_raw, 600))
+
+    github.commit_file(
+        path=f"{slug}/REVIEW.md",
+        content=review_raw,
+        commit_message=f"docs: add REVIEW.md for {slug}",
+        branch=branch,
+    )
+    logger.info("Committed REVIEW.md to %s", branch)
+
     # --- Create GitHub Issue to track the cycle ---
     _create_cycle_issue(github, slug, branch, title, repo_owner, repo_name)
 
     logger.info(
-        "✅ Steps 1 & 2 complete. Branch '%s' is ready for the Railway worker (Step 3).",
+        "✅ Steps 1, 2 & 2.5 complete. Branch '%s' is ready for the Railway worker (Step 3).",
         branch,
     )
 

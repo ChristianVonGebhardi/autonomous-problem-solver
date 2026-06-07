@@ -8,7 +8,8 @@ An autonomous AI agent that identifies real-world problems daily, designs softwa
 |---|---|---|
 | **1 — Problem Brainstorm** | GitHub Actions (daily, 00:00 UTC) | Claude searches the web, avoids past problems, picks the best new candidate, writes `PROBLEM.md` |
 | **2 — Architecture Design** | GitHub Actions (same run) | Claude designs the best-fit stack, writes `ARCHITECTURE.md` with a Mermaid diagram |
-| **3 — MVP Implementation** | Railway (always-on worker) | Claude implements the MVP, commits source files, opens blocker Issues if stuck, writes `DONE.md` when complete |
+| **2.5 — Peer Review** | GitHub Actions (same run) | Claude reviews PROBLEM.md as a domain expert and ARCHITECTURE.md as a software architect; commits `REVIEW.md` to the feature branch |
+| **3 — MVP Implementation** | Railway (always-on worker) | Claude implements the MVP (with REVIEW.md as additional context), commits source files, opens blocker Issues if stuck, writes `DONE.md` when complete |
 | **4 — Build Validation** | Railway (same worker, runs after Step 3) | Clones the feature branch, detects language, runs build/compile commands; up to 3 Claude-assisted fix attempts; labels PR `done` on pass or `needs-review` on failure |
 | **Dashboard** | GitHub Actions (after each daily cycle) | Reads all feature branch data, calls Claude for a motivational statement, generates a static HTML page deployed to GitHub Pages |
 

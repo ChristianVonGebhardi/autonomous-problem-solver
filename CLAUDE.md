@@ -3,11 +3,12 @@
 ## What this project is
 
 An autonomous AI agent pipeline that daily selects a real software problem, designs an
-architecture, and implements a working MVP — without human involvement. GitHub Actions runs
-Steps 1 (problem brainstorm) and 2 (architecture design) on a daily cron; a persistent
-Railway worker runs Step 3 (MVP implementation) by polling for new feature branches. A
-separate GitHub Actions workflow regenerates the public status dashboard after each daily
-cycle run and deploys it to GitHub Pages. All inter-step coordination happens through GitHub branches and Issues.
+architecture, peer-reviews both outputs, and implements a working MVP — without human
+involvement. GitHub Actions runs Steps 1 (problem brainstorm), 2 (architecture design), and
+2.5 (peer review) on a daily cron; a persistent Railway worker runs Step 3 (MVP
+implementation) by polling for new feature branches. A separate GitHub Actions workflow
+regenerates the public status dashboard after each daily cycle run and deploys it to GitHub
+Pages. All inter-step coordination happens through GitHub branches and Issues.
 
 ---
 
@@ -51,12 +52,13 @@ autonomous-problem-solver/
 └── .env.example
 ```
 
-Each completed problem cycle lives on its own `feature/<slug>` branch:
+Each completed problem cycle lives on its own `feature/<slug>` branch, with Step 2.5 adding `REVIEW.md`:
 ```
 feature/2026-05-28-ai-hallucinated-package-dependency-interception/
 └── 2026-05-28-ai-hallucinated-package-dependency-interception/
     ├── PROBLEM.md
     ├── ARCHITECTURE.md
+    ├── REVIEW.md                # Step 2.5 peer review — domain expert + architect personas
     ├── src/                     # (or idiomatic layout — Go uses cmd/, internal/, etc.)
     ├── RESUME_COUNT             # Persisted auto-resume counter — must survive container restarts
     └── DONE.md / CANCELLED.md  # Terminal marker — written last
@@ -159,6 +161,13 @@ The `done` label and `DONE.md` on the feature branch are the completion signal.
 
 Do not merge feature branches into main.
 Do not suggest merging a done PR as a cleanup or housekeeping action.
+
+### Never do these in Step 2.5
+
+- **Do not modify PROBLEM.md or ARCHITECTURE.md**: Step 2.5 is purely additive. The review is written to `REVIEW.md` only — the upstream artifacts are never altered.
+- **Do not use web search in Step 2.5**: The review is based solely on the two documents produced in Steps 1 and 2. `use_web_search=False` is intentional.
+- **Do not pass REVIEW.md as a source file to Step 3**: `_load_existing_src()` in `worker/step3.py` explicitly excludes `REVIEW.md` from the file enumeration. Step 3 receives it via the `review_md` parameter of `step3_user_prompt()`, framed as read-only context — not as code to implement or modify.
+- **Do not treat the review verdict as a hard gate**: The review is informational. Step 2.5 always commits REVIEW.md and the cycle always proceeds to the Railway worker regardless of the verdict. Adding a blocking gate would require human oversight to unblock, which defeats the autonomous operation model.
 
 ### Never do these in the worker
 

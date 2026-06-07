@@ -123,6 +123,83 @@ separated by the delimiter ---ARCHITECTURE-DIAGRAM---."""
 
 
 # ---------------------------------------------------------------------------
+# Step 2.5: Peer Review
+# ---------------------------------------------------------------------------
+
+STEP25_SYSTEM = """\
+You are a peer review panel for an autonomous software problem-solving agent. \
+You will review two documents — PROBLEM.md and ARCHITECTURE.md — produced by the agent \
+in Steps 1 and 2 of a daily problem-solving cycle.
+
+Your panel has two independent reviewers:
+
+REVIEWER 1 — Senior Domain Expert
+You are a senior subject matter expert in the domain of the problem. \
+Focus: Is the problem real and currently experienced by people? Is it specific and well-defined \
+enough to build for? Is it sufficiently differentiated from dominant existing commercial solutions? \
+Flag vague problem statements, overstated impact, or problems that already have adequate solutions.
+
+REVIEWER 2 — Senior Software Architect
+You are a senior software architect and solutions engineer. \
+Focus: Are the technology choices justified for this specific problem? Is the design sound and \
+implementable without extraordinary resources? Are the anticipated blockers realistic and complete? \
+Flag over-engineered solutions, unjustified technology choices, missing dependencies, or \
+unrealistic scope for an autonomous agent MVP.
+
+Output format — respond with EXACTLY this Markdown structure, nothing else:
+
+## Domain Expert Review
+
+**Verdict:** <Approved | Approved with concerns | Needs revision>
+
+**Strengths:**
+- <strength>
+
+**Concerns:**
+- <concern — be specific; write None if no concerns>
+
+**Recommendation:** <1-2 sentences on what, if anything, should change before implementation>
+
+---
+
+## Software Architect Review
+
+**Verdict:** <Approved | Approved with concerns | Needs revision>
+
+**Strengths:**
+- <strength>
+
+**Concerns:**
+- <concern — be specific; write None if no concerns>
+
+**Recommendation:** <1-2 sentences on what, if anything, should change before implementation>
+
+---
+
+## Overall verdict
+
+<Approved | Approved with concerns | Needs revision> — <one sentence summary>
+
+Do not include any preamble, explanation, or commentary outside this structure. \
+Start your response directly with "## Domain Expert Review".
+"""
+
+
+def step25_user_prompt(problem_md: str, architecture_md: str) -> str:
+    return f"""Review the following two documents produced by an autonomous agent for a new problem cycle.
+
+## PROBLEM.md
+
+{problem_md}
+
+## ARCHITECTURE.md
+
+{architecture_md}
+
+Provide your structured peer review following the format in your instructions."""
+
+
+# ---------------------------------------------------------------------------
 # Step 3: MVP Implementation
 # ---------------------------------------------------------------------------
 
@@ -171,6 +248,7 @@ def step3_user_prompt(
     architecture_md: str,
     existing_src_files: dict[str, str] | None = None,
     resume_context: str | None = None,
+    review_md: str | None = None,
 ) -> str:
     parts = []
 
@@ -179,6 +257,9 @@ def step3_user_prompt(
 
     parts.append(f"## PROBLEM.md\n\n{problem_md}\n")
     parts.append(f"## ARCHITECTURE.md\n\n{architecture_md}\n")
+
+    if review_md:
+        parts.append(f"## REVIEW.md (peer review — read for context, do not implement review feedback)\n\n{review_md}\n")
 
     if existing_src_files:
         parts.append("## Already committed files (do not re-emit these unless fixing a bug)\n")
@@ -198,6 +279,7 @@ def step3_resume_prompt(
     problem_md: str,
     architecture_md: str,
     existing_src_files: dict[str, str],
+    review_md: str | None = None,
 ) -> str:
     resume_context = f"""This cycle was previously cancelled. Here is the CANCELLED.md:\n\n{cancelled_md}\n\n\
 Review the existing source files below. Continue implementation from where it left off, \
@@ -209,6 +291,7 @@ If the original blocker is still present, emit a new BLOCKER block immediately."
         architecture_md=architecture_md,
         existing_src_files=existing_src_files,
         resume_context=resume_context,
+        review_md=review_md,
     )
 
 
