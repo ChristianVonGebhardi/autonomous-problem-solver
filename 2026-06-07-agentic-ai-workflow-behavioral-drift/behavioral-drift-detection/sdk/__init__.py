@@ -1,0 +1,1 @@
+"""BehaviorTrace SDK — OTEL-compatible instrumentation for agentic workflows."""
