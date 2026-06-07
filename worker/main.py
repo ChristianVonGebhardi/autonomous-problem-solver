@@ -70,6 +70,7 @@ def main() -> None:
 
     claude = ClaudeClient(api_key=api_key)
     github = GitHubClient(token=github_token, owner=repo_owner, repo_name=repo_name)
+    github.verify_connectivity()
 
     # In-memory sets to avoid processing the same event twice within a session
     processed_fresh: set[str] = set()      # slugs where Step 3 has been kicked off

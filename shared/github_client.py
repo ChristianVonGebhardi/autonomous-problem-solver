@@ -75,6 +75,35 @@ class GitHubClient:
         }
 
     # ------------------------------------------------------------------
+    # Connectivity check
+    # ------------------------------------------------------------------
+
+    def verify_connectivity(self) -> None:
+        """
+        Verifies GH_PAT is valid and the repo is accessible.
+        Exits with a clear message on 401 (expired/invalid token) or 404 (wrong repo).
+        Call once at worker startup before entering the poll loop.
+        """
+        import sys
+        try:
+            self._repo.get_topics()
+            logger.info("GitHub connectivity OK (owner=%s repo=%s)", self.owner, self.repo_name)
+        except GithubException as e:
+            if e.status == 401:
+                logger.critical(
+                    "GH_PAT authentication failed (401) — token may be expired or revoked. "
+                    "Rotate GH_PAT in Railway environment settings and redeploy."
+                )
+            elif e.status == 404:
+                logger.critical(
+                    "Repository not found (404) — check REPO_OWNER=%s REPO_NAME=%s and token scopes.",
+                    self.owner, self.repo_name,
+                )
+            else:
+                logger.critical("GitHub connectivity check failed (%d): %s", e.status, e)
+            sys.exit(1)
+
+    # ------------------------------------------------------------------
     # Memory: read all past PROBLEM.md files
     # ------------------------------------------------------------------
 
