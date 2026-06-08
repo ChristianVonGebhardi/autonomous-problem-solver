@@ -24,10 +24,10 @@ An AI-powered SaaS tool that automatically detects when client requests fall out
 
 ## Prerequisites
 
-- Python 3.11+
+- Python 3.11+ (3.12 works; 3.13 untested)
 - Node.js 18+
 - Docker + Docker Compose (for PostgreSQL + Redis)
-- OpenAI API key with GPT-4o access
+- OpenAI API key with GPT-4o access — requires a paid plan (minimum $5 Prototype tier); the Free tier does not include gpt-4o or text-embedding-3-large
 
 ## Quick Start
 
@@ -147,7 +147,7 @@ Project to be completed within 6 weeks of contract signing.
 Then paste a client message like:
 > "The website looks great! Can you also redesign our logo and set up our Instagram and LinkedIn pages? Oh, and we're thinking we need a mobile app too."
 
-→ ScopeGuard will detect 3 violations and generate a change order.
+→ ScopeGuard will detect the scope creep (violation score 1.0) and auto-generate a change order covering all out-of-scope items.
 
 ## Environment Variables Reference
 
@@ -253,6 +253,14 @@ sudo apt-get install -y libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz0b
 # macOS
 brew install pango
 ```
+**Windows:** WeasyPrint does not work on Windows without a full GTK runtime installation.
+PDF generation will silently fall back to HTML. The HTML file is saved in `backend/uploads/change_orders/`
+but is not yet downloadable from the UI. See issue [#64](https://github.com/ChristianVonGebhardi/autonomous-problem-solver/issues/64).
+
+**Drag-and-drop upload opens file in browser**
+Use the file picker button instead of drag-and-drop when uploading contracts. Drag-and-drop
+is currently broken — dropping a file navigates the browser to it instead of uploading.
+See issue [#63](https://github.com/ChristianVonGebhardi/autonomous-problem-solver/issues/63).
 
 **CORS errors in browser**
 Make sure the backend is running on port 8000 and the Vite proxy is configured (it is, in `vite.config.ts`).
