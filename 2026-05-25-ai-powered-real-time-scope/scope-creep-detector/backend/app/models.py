@@ -115,13 +115,13 @@ class Violation(Base):
     owner_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     
     violation_score = Column(Float, nullable=False)  # 0.0 - 1.0
-    severity = Column(SAEnum(SeverityLevel), nullable=False)
+    severity = Column(SAEnum(SeverityLevel, native_enum=False), nullable=False)
     summary = Column(Text, nullable=False)
     out_of_scope_work = Column(Text, nullable=False)
     cited_clauses = Column(JSON, nullable=True)  # list of clause excerpts
     estimated_hours = Column(Float, nullable=True)
     estimated_cost = Column(Float, nullable=True)
-    status = Column(SAEnum(ViolationStatus), default=ViolationStatus.PENDING)
+    status = Column(SAEnum(ViolationStatus, native_enum=False), default=ViolationStatus.PENDING)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     contract = relationship("Contract", back_populates="violations")
@@ -144,7 +144,7 @@ class ChangeOrder(Base):
     total_cost = Column(Float, nullable=False)
     terms = Column(Text, nullable=True)
     pdf_path = Column(String(1000), nullable=True)
-    status = Column(SAEnum(ChangeOrderStatus), default=ChangeOrderStatus.DRAFT)
+    status = Column(SAEnum(ChangeOrderStatus, native_enum=False), default=ChangeOrderStatus.DRAFT)
     sent_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
