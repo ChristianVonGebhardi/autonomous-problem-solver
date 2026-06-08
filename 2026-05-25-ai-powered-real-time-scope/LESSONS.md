@@ -78,7 +78,7 @@ chosen, document the GTK dependency requirement prominently and implement a fron
 fallback that serves the HTML file when no PDF is available.
 
 ### 6. Drag-and-drop file upload opens file in browser instead of uploading
-**Issue:** [#63](https://github.com/ChristianVonGebhardi/autonomous-problem-solver/issues/63) — filed separately
+**Issue:** [#65](https://github.com/ChristianVonGebhardi/autonomous-problem-solver/issues/65) — filed separately
 Dropping a `.txt` file onto the contract upload area navigates the browser to that file
 instead of triggering the upload handler. The file picker button works correctly.
 **Lesson for AI:** Drag-and-drop upload zones must call `event.preventDefault()` on the
