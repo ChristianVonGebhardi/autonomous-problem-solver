@@ -260,7 +260,7 @@ but is not yet downloadable from the UI. See issue [#64](https://github.com/Chri
 **Drag-and-drop upload opens file in browser**
 Use the file picker button instead of drag-and-drop when uploading contracts. Drag-and-drop
 is currently broken — dropping a file navigates the browser to it instead of uploading.
-See issue [#63](https://github.com/ChristianVonGebhardi/autonomous-problem-solver/issues/63).
+See issue [#65](https://github.com/ChristianVonGebhardi/autonomous-problem-solver/issues/65).
 
 **CORS errors in browser**
 Make sure the backend is running on port 8000 and the Vite proxy is configured (it is, in `vite.config.ts`).
