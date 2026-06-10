@@ -50,3 +50,10 @@ dashboard_output/
 
 # Graphify knowledge graph (generated artifacts)
 graphify-out/
+
+# MVP artifacts
+2026-05-25-ai-powered-real-time-scope/scope-creep-detector/frontend/node_modules/
+2026-05-25-ai-powered-real-time-scope/scope-creep-detector/frontend/package-lock.json
+2026-05-25-ai-powered-real-time-scope/scope-creep-detector/backend/venv/
+2026-05-25-ai-powered-real-time-scope/scope-creep-detector/backend/uploads/
+2026-05-25-ai-powered-real-time-scope/scope-creep-detector/.env
