@@ -1,0 +1,64 @@
+.card {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+}
+
+.card.blue::before { background: #3b82f6; }
+.card.green::before { background: #10b981; }
+.card.orange::before { background: #f59e0b; }
+.card.red::before { background: #ef4444; }
+.card.purple::before { background: #8b5cf6; }
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.title {
+  font-size: 12px;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+}
+
+.icon {
+  font-size: 20px;
+  opacity: 0.7;
+}
+
+.value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #f1f5f9;
+  margin-bottom: 4px;
+}
+
+.subtitle {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.trend {
+  font-size: 11px;
+  margin-top: 8px;
+  font-weight: 600;
+}
+
+.trend.up { color: #ef4444; }
+.trend.down { color: #10b981; }
