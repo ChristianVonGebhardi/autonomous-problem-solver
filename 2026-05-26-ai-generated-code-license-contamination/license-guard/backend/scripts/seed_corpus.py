@@ -481,7 +481,7 @@ def seed_database():
                 language=data.get('language'),
                 code_snippet=data['code_snippet'],
                 ast_tokens={"tokens": tokens[:100]},
-                minhash_signature=minhash,
+                minhash_signature=[int(x) for x in minhash] if minhash else None,
                 embedding=embedding,
             )
             db.add(snippet)

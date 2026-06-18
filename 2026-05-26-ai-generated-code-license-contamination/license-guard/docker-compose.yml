@@ -76,7 +76,7 @@ services:
     volumes:
       - ./backend:/app
       - model_cache:/root/.cache/huggingface
-    command: python -m rq worker --url redis://redis:6379/0 scans
+    command: rq worker --url redis://redis:6379/0 scans
 
   rq-dashboard:
     image: eoranged/rq-dashboard

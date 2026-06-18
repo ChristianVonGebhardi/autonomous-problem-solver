@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { api } from '../api/client'
@@ -7,18 +6,16 @@ import { ArrowLeft, Wrench, RefreshCw } from 'lucide-react'
 
 export default function ScanDetailPage() {
   const { scanId } = useParams<{ scanId: string }>()
-  const [showRemediation, setShowRemediation] = useState(false)
 
   const { data: scan, isLoading, refetch } = useQuery({
     queryKey: ['scan', scanId],
     queryFn: () => api.getScan(scanId!),
-    refetchInterval: (data) =>
-      data?.status === 'pending' || data?.status === 'processing' ? 2000 : false,
+    refetchInterval: (query) =>
+      query.state.data?.status === 'pending' || query.state.data?.status === 'processing' ? 2000 : false,
   })
 
   const remediateMutation = useMutation({
     mutationFn: (matchId?: string) => api.remediate(scanId!, matchId),
-    onSuccess: () => setShowRemediation(true),
   })
 
   if (isLoading) {

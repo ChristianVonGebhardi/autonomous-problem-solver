@@ -3,12 +3,6 @@ import { api } from '../api/client'
 import { Database, RefreshCw } from 'lucide-react'
 import RiskBadge from '../components/RiskBadge'
 
-const TIER_COLORS: Record<string, string> = {
-  high: 'bg-red-500',
-  medium: 'bg-yellow-500',
-  low: 'bg-blue-500',
-  unknown: 'bg-gray-400',
-}
 
 export default function CorpusPage() {
   const { data: stats, isLoading, refetch } = useQuery({

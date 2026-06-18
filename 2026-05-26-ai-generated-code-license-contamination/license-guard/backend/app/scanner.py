@@ -130,10 +130,10 @@ def _find_semantic_matches(
             embedding_str = '[' + ','.join(str(x) for x in analysis.embedding) + ']'
             sql = text("""
                 SELECT id, license_spdx, license_risk_tier, code_snippet, source_repo,
-                       1 - (embedding <=> :embedding::vector) as similarity
+                       1 - (embedding <=> CAST(:embedding AS vector)) as similarity
                 FROM corpus_snippets
                 WHERE embedding IS NOT NULL
-                ORDER BY embedding <=> :embedding::vector
+                ORDER BY embedding <=> CAST(:embedding AS vector)
                 LIMIT 10
             """)
             rows = db.execute(sql, {"embedding": embedding_str}).fetchall()
@@ -151,6 +151,7 @@ def _find_semantic_matches(
                     })
         except Exception as pgvector_err:
             logger.debug(f"pgvector query failed, falling back to manual cosine: {pgvector_err}")
+            db.rollback()
             # Fallback: manual cosine similarity
             snippets = db.query(CorpusSnippet).filter(
                 CorpusSnippet.embedding.isnot(None)
